@@ -383,7 +383,7 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
                     />
                 </div>
                 <img 
-                    src={appSettings.logoUrl || '/kreuz.png'}
+                    src="/kreuz.png"
                     alt="DRK Kreuz Logo"
                     className="sidebar-icon-logo"
                     onError={(e) => { 

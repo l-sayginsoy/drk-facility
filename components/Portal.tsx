@@ -543,8 +543,8 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
         <div className="portal-container">
             <style>{`
                 :root { --portal-max-width: 550px; }
-                .portal-container { width: 100%; min-height: 100vh; display: flex; justify-content: center; align-items: center; background-color: var(--bg-primary); font-family: 'Geist', sans-serif; color: var(--text-primary); padding: 2rem 1rem; }
-                .portal-box { width: 100%; max-width: var(--portal-max-width); background: var(--bg-secondary); border-radius: 12px; box-shadow: var(--shadow-lg); border: 1px solid var(--border); display: flex; flex-direction: column; }
+                .portal-container { width: 100%; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; background-color: var(--bg-primary); font-family: 'Geist', sans-serif; color: var(--text-primary); padding: 2rem 1rem; overflow-y: auto; }
+                .portal-box { width: 100%; max-width: var(--portal-max-width); background: var(--bg-secondary); border-radius: 12px; box-shadow: var(--shadow-lg); border: 1px solid var(--border); display: flex; flex-direction: column; margin: auto; }
                 .portal-box.view-pruefen { max-width: 450px; }
                 .portal-box.view-pruefen form { display: flex; flex-direction: column; flex-grow: 1; }
                 .portal-header { padding: 2.5rem 2rem 2.5rem; text-align: center; }
