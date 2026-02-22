@@ -369,13 +369,13 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
             <div className="sidebar-header">
                 <div className="sidebar-logo-container">
                     <img 
-                        src="/drk-logo.png"
+                        src={appSettings.logoUrl}
                         alt="App Logo"
                         className="sidebar-logo"
                     />
                 </div>
                 <img 
-                    src="/kreuz.png"
+                    src={appSettings.logoUrl}
                     alt="DRK Kreuz Logo"
                     className="sidebar-icon-logo"
                 />

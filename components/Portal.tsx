@@ -512,7 +512,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
         return (
              <>
                 <div className="portal-header">
-                    <img src="/drk-logo.png" alt="App Logo" className="portal-logo" />
+                    <img src={appSettings.logoUrl} alt="App Logo" className="portal-logo" />
                     <h1 className="portal-title">{appSettings.appName}</h1>
                     <p className="portal-subtitle-org">DRK Kreisverband Vorderpfalz e. V.</p>
                 </div>

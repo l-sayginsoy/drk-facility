@@ -440,6 +440,11 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                          <p className="form-group-description">Der hier festgelegte Name wird im Portal angezeigt.</p>
                         <input type="text" value={appSettings.appName} onChange={e => setAppSettings(prev => ({...prev, appName: e.target.value}))} className="form-group-input" />
                     </div>
+                    <div className="form-group">
+                        <label>Logo URL</label>
+                         <p className="form-group-description">URL zum Logo (oder Base64-String). Wird in Sidebar und Portal angezeigt.</p>
+                        <input type="text" value={appSettings.logoUrl} onChange={e => setAppSettings(prev => ({...prev, logoUrl: e.target.value}))} className="form-group-input" />
+                    </div>
                 </div>
             </div>
             <div className="settings-section">
