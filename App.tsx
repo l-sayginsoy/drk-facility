@@ -194,6 +194,7 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const isRemoteUpdate = useRef(false);
+  const prevUsersRef = useRef<User[]>(users);
 
   // --- Supabase Sync Logic ---
   useEffect(() => {
@@ -278,14 +279,6 @@ const App: React.FC = () => {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
 
-  const prevUsersRef = useRef<User[]>();
-  const prevUsers = prevUsersRef.current; // Read BEFORE effect
-
-  useEffect(() => {
-      prevUsersRef.current = users; // Update AFTER effect
-  }, [users]);
-
-
   // --- Effects to persist state ---
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
@@ -321,13 +314,17 @@ const App: React.FC = () => {
   }, [appSettings]);
 
   // --- Core App Logic Effects ---
-  // Automatic Ticket Re-assignment on Technician Leave
+  // Automatic Ticket Re-assignment on Technician Leave OR Return
   useEffect(() => {
-      if (!prevUsers || prevUsers.length === 0) return;
+      const prevUsers = prevUsersRef.current;
+      if (!prevUsers || prevUsers.length === 0) {
+          prevUsersRef.current = users;
+          return;
+      }
 
+      // 1. Handle Absence
       const newlyAbsentUsers = users.filter(user => {
-          const prevUser = prevUsers?.find(p => p.id === user.id);
-          // Safety check: ensure both current and previous user objects have availability defined
+          const prevUser = prevUsers.find(p => p.id === user.id);
           return prevUser && 
               prevUser.availability && 
               user.availability &&
@@ -338,17 +335,15 @@ const App: React.FC = () => {
       if (newlyAbsentUsers.length > 0) {
           console.log("Redistribution triggered for:", newlyAbsentUsers.map(u => u.name));
           
-          // Use functional update to avoid 'tickets' dependency loop
           setTickets(currentTickets => {
               let ticketsToUpdate = [...currentTickets];
               let updated = false;
               let movedTotal = 0;
 
-              // Find available technicians for redistribution
               const availableTechnicians = users.filter(u => 
                   u.role === Role.Technician && 
                   u.isActive && 
-                  u.availability && // Safety check
+                  u.availability && 
                   (u.availability.status === AvailabilityStatus.Available)
               );
 
@@ -358,7 +353,6 @@ const App: React.FC = () => {
                   return currentTickets; 
               }
 
-              // Calculate load for each available technician
               const techLoadMap = new Map<string, number>();
               availableTechnicians.forEach(tech => {
                   const currentLoad = currentTickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
@@ -366,49 +360,25 @@ const App: React.FC = () => {
               });
 
               newlyAbsentUsers.forEach(absentUser => {
-                  console.log(`Processing absent user: ${absentUser.name}`);
                   const leaveUntilDate = parseISODate(absentUser.availability.leaveUntil);
-                  
-                  // If leaveUntil is set, set time to end of day to include tickets due on that day
                   if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
 
                   const criticalTickets = currentTickets.filter(t => {
                       if (t.technician !== absentUser.name || t.status === Status.Abgeschlossen) return false;
-                      
-                      // If NO return date is set (indefinite absence), move ALL open tickets
                       if (!leaveUntilDate) return true;
-                      
-                      // Criteria 1: High Priority
                       if (t.priority === Priority.Hoch) return true;
-                      
-                      // Criteria 2: Overdue
                       if (t.status === Status.Ueberfaellig) return true;
-                      
-                      // Criteria 3: Due Date falls within absence period
                       if (t.dueDate) {
                           const dueDate = parseGermanDate(t.dueDate);
-                          // If ticket has a due date and it is before or on the leaveUntil date
-                          if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) {
-                              return true;
-                          }
+                          if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) return true;
                       }
-                      
                       return false;
                   });
 
-                  console.log(`Found ${criticalTickets.length} tickets to redistribute for ${absentUser.name}`);
-
                   if (criticalTickets.length > 0) {
                       criticalTickets.forEach(ticket => {
-                          // Sort by load (ascending) to find the least busy technician at this moment
-                          availableTechnicians.sort((a, b) => {
-                              const loadA = techLoadMap.get(a.name) || 0;
-                              const loadB = techLoadMap.get(b.name) || 0;
-                              return loadA - loadB;
-                          });
-                          
+                          availableTechnicians.sort((a, b) => (techLoadMap.get(a.name) || 0) - (techLoadMap.get(b.name) || 0));
                           const targetTech = availableTechnicians[0];
-
                           if (targetTech) {
                               const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
                               if (ticketIndex !== -1) {
@@ -416,19 +386,10 @@ const App: React.FC = () => {
                                   const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
                                   const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
                                   const note = `AUTO-UMVERTEILUNG: Von ${absentUser.name} an ${targetTech.name}. Grund: Abwesend bis ${absentUser.availability.leaveUntil || 'unbekannt'}. (${formattedDate}, ${formattedTime})`;
-
-                                  const originalTicket = ticketsToUpdate[ticketIndex];
-                                  ticketsToUpdate[ticketIndex] = {
-                                      ...originalTicket,
-                                      technician: targetTech.name,
-                                      notes: [...(originalTicket.notes || []), note]
-                                  };
+                                  ticketsToUpdate[ticketIndex] = { ...ticketsToUpdate[ticketIndex], technician: targetTech.name, notes: [...(ticketsToUpdate[ticketIndex].notes || []), note] };
                                   updated = true;
                                   movedTotal++;
-                                  
-                                  // Increment load for the target technician so the next ticket might go to someone else
-                                  const currentLoad = techLoadMap.get(targetTech.name) || 0;
-                                  techLoadMap.set(targetTech.name, currentLoad + 1);
+                                  techLoadMap.set(targetTech.name, (techLoadMap.get(targetTech.name) || 0) + 1);
                               }
                           }
                       });
@@ -442,7 +403,48 @@ const App: React.FC = () => {
               return currentTickets;
           });
       }
-  }, [users]); // Removed 'tickets' from dependency array to prevent loops
+
+      // 2. Handle Return
+      const returningTechnicians = users.filter(user => {
+          const prevUser = prevUsers.find(u => u.id === user.id);
+          return prevUser && 
+                 prevUser.availability.status === AvailabilityStatus.OnLeave && 
+                 user.availability.status === AvailabilityStatus.Available;
+      });
+
+      if (returningTechnicians.length > 0) {
+          setTickets(currentTickets => {
+              const openTickets = currentTickets.filter(t => t.status === Status.Offen);
+              let ticketsUpdated = false;
+              let updatedTickets = [...currentTickets];
+              
+              openTickets.forEach(ticket => {
+                  const newTechnician = assignTicket(
+                      { title: ticket.title, description: ticket.description },
+                      users,
+                      updatedTickets, 
+                      appSettings.routingRules
+                  );
+
+                  if (returningTechnicians.some(rt => rt.name === newTechnician) && ticket.technician !== newTechnician) {
+                      const ticketIndex = updatedTickets.findIndex(t => t.id === ticket.id);
+                      if (ticketIndex !== -1) {
+                          updatedTickets[ticketIndex] = { ...updatedTickets[ticketIndex], technician: newTechnician };
+                          ticketsUpdated = true;
+                      }
+                  }
+              });
+
+              if (ticketsUpdated) {
+                  alert(`Willkommen zurück! ${returningTechnicians.map(u => u.name).join(', ')} ist wieder verfügbar. Offene Tickets wurden automatisch neu zugewiesen.`);
+                  return updatedTickets;
+              }
+              return currentTickets;
+          });
+      }
+
+      prevUsersRef.current = users;
+  }, [users, appSettings.routingRules]);
 
   // Maintenance Scheduler Simulation
   useEffect(() => {

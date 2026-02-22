@@ -19,7 +19,6 @@ export enum Role {
 export enum AvailabilityStatus {
   Available = 'Verfügbar',
   OnLeave = 'Abwesend',
-  InAction = 'Im Einsatz',
 }
 
 export interface User {
