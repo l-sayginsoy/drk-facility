@@ -512,7 +512,19 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
         return (
              <>
                 <div className="portal-header">
-                    <img src={appSettings.logoUrl} alt="App Logo" className="portal-logo" />
+                    <img 
+                        src={appSettings.logoUrl || '/drk-logo.png'} 
+                        alt="App Logo" 
+                        className="portal-logo" 
+                        onError={(e) => { 
+                            const target = e.currentTarget;
+                            if (target.src.includes('/drk-logo.png')) {
+                                target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0id2hpdGUiIHN0cm9rZT0iI2UzMDYxMyIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iNDIiIHk9IjIwIiB3aWR0aD0iMTYiIGhlaWdodD0iNjAiIGZpbGw9IiNlMzA2MTMiLz48cmVjdCB4PSIyMCIgeT0iNDIiIHdpZHRoPSI2MCIgaGVpZ2h0PSIxNiIgZmlsbD0iI2UzMDYxMyIvPjwvc3ZnPg==';
+                            } else {
+                                target.src = '/drk-logo.png';
+                            }
+                        }}
+                    />
                     <h1 className="portal-title">{appSettings.appName}</h1>
                     <p className="portal-subtitle-org">DRK Kreisverband Vorderpfalz e. V.</p>
                 </div>

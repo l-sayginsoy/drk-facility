@@ -369,15 +369,31 @@ const Sidebar: React.FC<SidebarProps> = ({ appSettings, isCollapsed, setCollapse
             <div className="sidebar-header">
                 <div className="sidebar-logo-container">
                     <img 
-                        src={appSettings.logoUrl}
+                        src={appSettings.logoUrl || '/drk-logo.png'}
                         alt="App Logo"
                         className="sidebar-logo"
+                        onError={(e) => { 
+                            const target = e.currentTarget;
+                            if (target.src.includes('/drk-logo.png')) {
+                                target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0id2hpdGUiIHN0cm9rZT0iI2UzMDYxMyIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iNDIiIHk9IjIwIiB3aWR0aD0iMTYiIGhlaWdodD0iNjAiIGZpbGw9IiNlMzA2MTMiLz48cmVjdCB4PSIyMCIgeT0iNDIiIHdpZHRoPSI2MCIgaGVpZ2h0PSIxNiIgZmlsbD0iI2UzMDYxMyIvPjwvc3ZnPg==';
+                            } else {
+                                target.src = '/drk-logo.png';
+                            }
+                        }}
                     />
                 </div>
                 <img 
-                    src={appSettings.logoUrl}
+                    src={appSettings.logoUrl || '/kreuz.png'}
                     alt="DRK Kreuz Logo"
                     className="sidebar-icon-logo"
+                    onError={(e) => { 
+                        const target = e.currentTarget;
+                        if (target.src.includes('/kreuz.png')) {
+                            target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI0OCIgZmlsbD0id2hpdGUiIHN0cm9rZT0iI2UzMDYxMyIgc3Ryb2tlLXdpZHRoPSIyIi8+PHJlY3QgeD0iNDIiIHk9IjIwIiB3aWR0aD0iMTYiIGhlaWdodD0iNjAiIGZpbGw9IiNlMzA2MTMiLz48cmVjdCB4PSIyMCIgeT0iNDIiIHdpZHRoPSI2MCIgaGVpZ2h0PSIxNiIgZmlsbD0iI2UzMDYxMyIvPjwvc3ZnPg==';
+                        } else {
+                            target.src = '/kreuz.png';
+                        }
+                    }}
                 />
             </div>
             <div className="sidebar-toggle-container">
