@@ -421,7 +421,7 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                         <select value={ticket.technician} onChange={(e) => handleFieldChange('technician', e.target.value)}>
                             <option value="N/A">Zuweisen</option>
                             {technicians.map(t => (
-                                <option key={t.id} value={t.name}>
+                                <option key={t.id} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
                                     {t.name} {t.availability.status === AvailabilityStatus.OnLeave ? '(Abwesend)' : ''}
                                 </option>
                             ))}

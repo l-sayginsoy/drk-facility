@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Ticket, Priority, User, AppSettings } from '../types';
+import { Ticket, Priority, User, AppSettings, AvailabilityStatus } from '../types';
 import { CameraIcon } from './icons/CameraIcon';
 import { XIcon } from './icons/XIcon';
 
@@ -239,7 +239,11 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
                 <label htmlFor="technician">Techniker (wird ggf. automatisch zugewiesen)</label>
                 <select id="technician" value={technician} onChange={e => setTechnician(e.target.value)}>
                     <option value="N/A">Nicht zugewiesen</option>
-                    {technicians.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                    {technicians.map(t => (
+                        <option key={t.name} value={t.name} disabled={t.availability.status === AvailabilityStatus.OnLeave}>
+                            {t.name} {t.availability.status === AvailabilityStatus.OnLeave ? '(Abwesend)' : ''}
+                        </option>
+                    ))}
                 </select>
             </div>
              <div className="form-group full-width">

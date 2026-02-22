@@ -404,12 +404,15 @@ const App: React.FC = () => {
           });
       }
 
-      // 2. Handle Return
+      // 2. Handle Return (Availability OR Activation OR New User)
       const returningTechnicians = users.filter(user => {
           const prevUser = prevUsers.find(u => u.id === user.id);
-          return prevUser && 
-                 prevUser.availability.status === AvailabilityStatus.OnLeave && 
-                 user.availability.status === AvailabilityStatus.Available;
+          const isAvailable = user.role === Role.Technician && user.isActive && user.availability.status === AvailabilityStatus.Available;
+          
+          if (!prevUser) return isAvailable; // New available technician
+
+          const wasAvailable = prevUser.role === Role.Technician && prevUser.isActive && prevUser.availability.status === AvailabilityStatus.Available;
+          return !wasAvailable && isAvailable;
       });
 
       if (returningTechnicians.length > 0) {
