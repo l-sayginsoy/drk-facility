@@ -416,30 +416,58 @@ const App: React.FC = () => {
       });
 
       if (returningTechnicians.length > 0) {
+          console.log("RÜCKKEHR LOGIK: Gefundene Rückkehrer:", returningTechnicians.map(u => u.name));
           setTickets(currentTickets => {
               const openTickets = currentTickets.filter(t => t.status === Status.Offen);
               let ticketsUpdated = false;
               let updatedTickets = [...currentTickets];
-              
+              let reassignedCount = 0;
+
+              // Helfer zur Lastberechnung
+              const getLoad = (techName: string, ticketList: Ticket[]) => 
+                  ticketList.filter(t => t.technician === techName && t.status !== Status.Abgeschlossen).length;
+
               openTickets.forEach(ticket => {
-                  const newTechnician = assignTicket(
+                  // 1. Versuche Standard-Routing-Regeln
+                  let bestTech = assignTicket(
                       { title: ticket.title, description: ticket.description },
                       users,
                       updatedTickets, 
                       appSettings.routingRules
                   );
 
-                  if (returningTechnicians.some(rt => rt.name === newTechnician) && ticket.technician !== newTechnician) {
+                  // 2. Wenn keine Regel passt (N/A), versuche Rückkehrer per Lastverteilung einzubinden
+                  if (bestTech === 'N/A') {
+                      const eligibleReturnees = [...returningTechnicians].sort((a, b) => getLoad(a.name, updatedTickets) - getLoad(b.name, updatedTickets));
+                      if (eligibleReturnees.length > 0) {
+                          const candidate = eligibleReturnees[0];
+                          const currentTechLoad = ticket.technician === 'N/A' ? 999 : getLoad(ticket.technician, updatedTickets);
+                          const candidateLoad = getLoad(candidate.name, updatedTickets);
+                          
+                          if (candidateLoad < currentTechLoad) {
+                              bestTech = candidate.name;
+                          }
+                      }
+                  }
+
+                  // 3. Zuweisung anwenden, wenn es einer der Rückkehrer ist und sich vom aktuellen unterscheidet
+                  if (bestTech !== 'N/A' && returningTechnicians.some(rt => rt.name === bestTech) && ticket.technician !== bestTech) {
                       const ticketIndex = updatedTickets.findIndex(t => t.id === ticket.id);
                       if (ticketIndex !== -1) {
-                          updatedTickets[ticketIndex] = { ...updatedTickets[ticketIndex], technician: newTechnician };
+                          updatedTickets[ticketIndex] = { 
+                              ...updatedTickets[ticketIndex], 
+                              technician: bestTech,
+                              notes: [...(updatedTickets[ticketIndex].notes || []), `AUTO-ZUWIESUNG: An Rückkehrer ${bestTech} zugewiesen.`]
+                          };
                           ticketsUpdated = true;
+                          reassignedCount++;
                       }
                   }
               });
 
               if (ticketsUpdated) {
-                  alert(`Willkommen zurück! ${returningTechnicians.map(u => u.name).join(', ')} ist wieder verfügbar. Offene Tickets wurden automatisch neu zugewiesen.`);
+                  console.log(`RÜCKKEHR LOGIK: ${reassignedCount} Tickets neu zugewiesen.`);
+                  alert(`Willkommen zurück! ${returningTechnicians.map(u => u.name).join(', ')} ist wieder verfügbar. ${reassignedCount} offene Tickets wurden automatisch zugewiesen.`);
                   return updatedTickets;
               }
               return currentTickets;
@@ -620,8 +648,28 @@ const App: React.FC = () => {
     const determinedPriority = newTicketData.priority || category?.default_priority || appSettings.defaultPriority;
 
     // 2. Load-Balancing Technician Assignment
-    // FIX: Pass an object with only the properties needed by assignTicket to resolve type error.
-    const assignedTechnician = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules);
+    let assignedTechnician = newTicketData.technician || 'N/A';
+    let autoCorrectionNote = '';
+
+    // Wenn ein Techniker manuell gewählt wurde, prüfen ob er abwesend ist
+    if (assignedTechnician !== 'N/A') {
+        const selectedTech = users.find(u => u.name === assignedTechnician);
+        if (selectedTech && selectedTech.availability.status === AvailabilityStatus.OnLeave) {
+            // Wenn abwesend, automatisch neu zuweisen
+            const autoTech = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules);
+            if (autoTech !== 'N/A' && autoTech !== selectedTech.name) {
+                autoCorrectionNote = `HINWEIS: Gewählter Techniker ${selectedTech.name} ist abwesend. Automatisch zugewiesen an ${autoTech}.`;
+                assignedTechnician = autoTech;
+                alert(autoCorrectionNote);
+            } else {
+                assignedTechnician = 'N/A';
+                alert(`Warnung: ${selectedTech.name} ist abwesend. Ticket wurde auf 'Nicht zugewiesen' gesetzt.`);
+            }
+        }
+    } else {
+        // Keine manuelle Zuweisung, nutze Auto-Routing
+        assignedTechnician = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules);
+    }
 
     // 3. SLA-based Due Date Calculation
     const slaRule = appSettings.slaMatrix.find(r => r.categoryId === newTicketData.categoryId && r.priority === determinedPriority);
@@ -641,7 +689,7 @@ const App: React.FC = () => {
       priority: determinedPriority,
       technician: assignedTechnician,
       dueDate: formattedDueDate,
-      notes: newTicketData.notes || [],
+      notes: autoCorrectionNote ? [...(newTicketData.notes || []), autoCorrectionNote] : (newTicketData.notes || []),
       hasNewNoteFromReporter: false,
       is_emergency: false,
     };
