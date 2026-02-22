@@ -116,9 +116,7 @@ const NewTicketForm: React.FC<{
     }, [formState]);
 
     const photoRules = useMemo(() => {
-        const recommended = ['Wäscherei', 'Küche', 'Haustechnik'];
-        const required = ['Brandschutz', 'Sicherheit'];
-        if (required.includes(formState.area)) return { mode: 'required', text: 'Foto ist für diesen Bereich erforderlich.' };
+        const recommended = ['Wäscherei', 'Küche', 'Haustechnik', 'Brandschutz', 'Sicherheit'];
         if (recommended.includes(formState.area)) return { mode: 'recommended', text: 'Foto wird für diesen Bereich empfohlen.' };
         return { mode: 'optional', text: '' };
     }, [formState.area]);
@@ -126,11 +124,9 @@ const NewTicketForm: React.FC<{
     const validate = () => {
         const newErrors: Record<string, string> = {};
         if (!formState.area) newErrors.area = 'Bereich ist ein Pflichtfeld.';
-        if (!formState.categoryId) newErrors.categoryId = 'Kategorie ist ein Pflichtfeld.';
         if (formState.title.length < 10) newErrors.title = 'Betreff muss mindestens 10 Zeichen lang sein.';
         if (!formState.location.trim()) newErrors.location = 'Ort ist ein Pflichtfeld.';
         if (!formState.description.trim()) newErrors.description = 'Beschreibung ist ein Pflichtfeld.';
-        if (photoRules.mode === 'required' && formState.photos.length === 0) newErrors.photos = 'Ein Foto ist erforderlich.';
         if (formState.reporter.trim().length < 2) newErrors.reporter = 'Name muss mindestens 2 Zeichen lang sein.';
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (formState.reporterEmail && !emailRegex.test(formState.reporterEmail)) {
@@ -207,13 +203,6 @@ const NewTicketForm: React.FC<{
                     <label>Ort / Bereich Detail*</label>
                     <input type="text" placeholder="z.B. Raum 102, Maschine 3" value={formState.location} onChange={e => setFormState(p => ({...p, location: e.target.value}))} />
                     {errors.location && <span className="error-text">{errors.location}</span>}
-                </div>
-                 <div className="form-group">
-                    <label>Kategorie*</label>
-                    <select value={formState.categoryId} onChange={e => setFormState(p => ({...p, categoryId: e.target.value}))}>
-                        {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                     {errors.categoryId && <span className="error-text">{errors.categoryId}</span>}
                 </div>
                 <div className="form-group">
                     <label>Betreff*</label>

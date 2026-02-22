@@ -99,28 +99,29 @@
             <ul>
                 <li>Bereich: Eine vordefinierte Liste von Standorten (z.B. "Küche", "Verwaltung").</li>
                 <li>Ort/Detail: Ein Freitextfeld zur Spezifizierung des Ortes (z.B. "Raum 102", "Maschine 3").</li>
-                <li>Kategorie: Eine Auswahl vordefinierter Problemkategorien (z.B. "Sicherheit", "Komfort", "IT-Infrastruktur"). Dies ist ein entscheidender Input für die Automatisierung.</li>
                 <li>Betreff & Beschreibung: Felder zur genauen Beschreibung des Problems.</li>
             </ul>
         </li>
-        <li><strong>Intelligente Einschränkungen:</strong>
+        <li><strong>Intelligente Vereinfachung:</strong>
             <ul>
-                <li>Der Melder kann bewusst <strong>keine Priorität</strong> und <strong>keinen Techniker</strong> auswählen. Diese Felder sind im Meldeformular nicht vorhanden.</li>
-                <li><strong>Logik dahinter:</strong> Die Priorität wird zuverlässiger vom System anhand der Kategorie bestimmt (siehe Teil 2.1). Die Technikerzuweisung erfolgt ebenfalls automatisch basierend auf Skill und Auslastung, was menschliche Fehleinschätzungen vermeidet.</li>
+                <li>Der Melder muss <strong>keine Kategorie</strong>, <strong>keine Priorität</strong> und <strong>keinen Techniker</strong> auswählen.</li>
+                <li><strong>Logik dahinter:</strong> Um den Meldevorgang so einfach wie möglich zu gestalten, wurde das Feld "Kategorie" entfernt. Das System ordnet das Ticket im Hintergrund automatisch einer Standard-Kategorie zu. Die Priorität und Technikerzuweisung erfolgen ebenfalls vollautomatisch basierend auf intelligenten Regeln, was menschliche Fehleinschätzungen vermeidet und den Melder entlastet.</li>
                 <li><strong>Abwesenheitsschutz:</strong> Das System stellt sicher, dass niemals ein abwesender Techniker für ein neues Ticket ausgewählt wird.</li>
             </ul>
         </li>
-        <li><strong>Foto-Upload:</strong>
+        <li><strong>Foto-Upload (Freiwillig):</strong>
             <ul>
                 <li>Es können bis zu <strong>3 Fotos</strong> zu einer Meldung hinzugefügt werden.</li>
-                <li>Die App bietet die Option, ein Foto direkt mit der <strong>Gerätekamera</strong> aufzunehmen (<code>&lt;input type="file" capture&gt;</code>) oder aus der <strong>Galerie</strong> auszuwählen.</li>
+                <li><strong>Wichtig:</strong> Der Foto-Upload ist in allen Bereichen <strong>freiwillig</strong>. In kritischen Bereichen wie "Sicherheit" oder "Brandschutz" wird ein Foto jedoch ausdrücklich empfohlen, um die Lage vorab besser einschätzen zu können.</li>
                 <li>Alle hochgeladenen Bilder werden vor dem Speichern <strong>automatisch komprimiert</strong>, um den Speicherplatz im Browser zu schonen und die Performance zu gewährleisten.</li>
             </ul>
         </li>
-        <li><strong>Optionale Felder:</strong>
+        <li><strong>Automatisierte E-Mail-Benachrichtigungen:</strong>
             <ul>
                 <li>Wunsch-Termin: Ermöglicht dem Melder, eine Präferenz anzugeben.</li>
-                <li>E-Mail-Adresse: Falls angegeben, kann das System (simulierte) Status-Updates per E-Mail senden.</li>
+                <li>E-Mail-Adresse: Wenn eine E-Mail-Adresse angegeben wird, sendet das System <strong>automatisch Status-Updates</strong>.</li>
+                <li><strong>Funktionsweise:</strong> Der Melder erhält eine Bestätigung bei Ticketeingang sowie eine Benachrichtigung, sobald sich der Status des Tickets ändert (z.B. von "Offen" auf "In Arbeit" oder "Abgeschlossen").</li>
+                <li>Admins können den Verlauf dieser Benachrichtigungen in der Steuerzentrale unter "E-Mail Log" einsehen.</li>
             </ul>
         </li>
     </ul>
@@ -293,6 +294,7 @@
     <ul>
         <li><strong>Optimierte Rückkehr-Logik (Februar 2026):</strong> Techniker, die aus dem Urlaub oder Krankheitsstand zurückkehren, werden nun proaktiv in die Arbeitsverteilung einbezogen. Das System erkennt die Rückkehr und verteilt offene Tickets um, um eine Überlastung der anderen Teammitglieder sofort zu reduzieren.</li>
         <li><strong>Strikter Abwesenheitsschutz:</strong> Es ist nun systemseitig unmöglich, abwesenden Technikern versehentlich Aufträge zuzuweisen. Die Auswahlfelder sind gesperrt, und die Automatisierung korrigiert etwaige Fehlzuweisungen in Echtzeit.</li>
+        <li><strong>Vereinfachter Meldevorgang:</strong> Das Feld "Kategorie" wurde aus dem Melder-Portal entfernt, um die Hürde für neue Meldungen zu senken. Die Kategorisierung erfolgt nun automatisch im Hintergrund.</li>
         <li><strong>Automatisierte Prozess-Dokumentation:</strong> Alle vom System getroffenen Entscheidungen (wie Umverteilungen) werden automatisch als Notiz im Ticket hinterlegt. Dies sorgt für 100% Nachvollziehbarkeit ohne manuellen Aufwand.</li>
         <li><strong>SLA-Matrix Integration:</strong> Die Berechnung von Fälligkeiten erfolgt nun dynamisch basierend auf der Wichtigkeit der Kategorie und der Priorität, was eine präzisere Zeitplanung ermöglicht.</li>
     </ul>

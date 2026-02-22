@@ -79,7 +79,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
       reporter,
       dueDate: formattedDueDate,
       technician,
-      categoryId,
+      categoryId, // Still using the default categoryId from state
       description,
       photos,
       notes: [],
@@ -220,12 +220,6 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
              <div className="form-group">
                 <label htmlFor="location">Ort / Raum</label>
                 <input id="location" type="text" value={location} onChange={e => setLocation(e.target.value)} />
-            </div>
-            <div className="form-group full-width">
-                <label htmlFor="category">Kategorie</label>
-                <select id="category" value={categoryId} onChange={e => setCategoryId(e.target.value)} required>
-                    {appSettings.ticketCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
             </div>
              <div className="form-group">
                 <label htmlFor="reporter">Melder</label>

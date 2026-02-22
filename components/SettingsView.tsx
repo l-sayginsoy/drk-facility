@@ -1,7 +1,7 @@
 
 // FIX: Import useMemo hook from React.
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus } from '../types';
+import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus, EmailLog } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import UserModal from './UserModal';
@@ -303,11 +303,12 @@ interface SettingsViewProps {
     setMaintenancePlans: React.Dispatch<React.SetStateAction<MaintenancePlan[]>>;
     appSettings: AppSettings;
     setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
+    emailLogs: EmailLog[];
 }
 
 const SettingsView: React.FC<SettingsViewProps> = (props) => {
-    const { users, setUsers, locations, setLocations, assets, setAssets, maintenancePlans, setMaintenancePlans, appSettings, setAppSettings } = props;
-    const [activeTab, setActiveTab] = useState<'prozesse' | 'benutzer' | 'standorte' | 'datenbank'>('prozesse');
+    const { users, setUsers, locations, setLocations, assets, setAssets, maintenancePlans, setMaintenancePlans, appSettings, setAppSettings, emailLogs } = props;
+    const [activeTab, setActiveTab] = useState<'prozesse' | 'benutzer' | 'standorte' | 'datenbank' | 'emails'>('prozesse');
     
     // Supabase Settings
     const [sbUrl, setSbUrl] = useState(window.localStorage.getItem('SUPABASE_URL_OVERRIDE') || '');
@@ -634,6 +635,46 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         </div>
     );
 
+    const renderEmailsTab = () => (
+        <div className="settings-section">
+            <div className="settings-section-header">
+                <h3 className="settings-section-title">E-Mail Benachrichtigungen (Simulation)</h3>
+            </div>
+            <div className="settings-section-body">
+                <p className="form-group-description">
+                    Hier sehen Sie eine Historie der E-Mails, die das System automatisch an Melder "versendet" hat. Da die App autark läuft, werden diese E-Mails hier simuliert und protokolliert.
+                </p>
+                {emailLogs.length === 0 ? (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        Noch keine E-Mails versendet.
+                    </div>
+                ) : (
+                    <div className="email-log-list">
+                        {emailLogs.map(log => (
+                            <div key={log.id} className="email-log-item">
+                                <div className="email-log-meta">
+                                    <span className="email-log-date">{log.timestamp}</span>
+                                    <span className="email-log-recipient">An: {log.recipient}</span>
+                                    <span className="email-log-ticket">Ticket: {log.ticketId}</span>
+                                </div>
+                                <div className="email-log-subject">{log.subject}</div>
+                                <div className="email-log-body">{log.body}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+            <style>{`
+                .email-log-list { display: flex; flex-direction: column; gap: 1rem; }
+                .email-log-item { padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); }
+                .email-log-meta { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
+                .email-log-subject { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-primary); }
+                .email-log-body { font-size: 0.85rem; color: var(--text-secondary); white-space: pre-wrap; line-height: 1.4; }
+                .email-log-date { font-weight: 600; }
+            `}</style>
+        </div>
+    );
+
     return (
         <div className="settings-view">
             <style>{`
@@ -718,12 +759,14 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 <button className={`tab-btn ${activeTab === 'benutzer' ? 'active' : ''}`} onClick={() => setActiveTab('benutzer')}>Benutzer & Teams</button>
                 <button className={`tab-btn ${activeTab === 'standorte' ? 'active' : ''}`} onClick={() => setActiveTab('standorte')}>Standorte & Anlagen</button>
                 <button className={`tab-btn ${activeTab === 'datenbank' ? 'active' : ''}`} onClick={() => setActiveTab('datenbank')}>Datenbank</button>
+                <button className={`tab-btn ${activeTab === 'emails' ? 'active' : ''}`} onClick={() => setActiveTab('emails')}>E-Mail Log</button>
             </div>
             <div className="tab-content">
                 {activeTab === 'prozesse' && renderProzesseTab()}
                 {activeTab === 'benutzer' && renderBenutzerTab()}
                 {activeTab === 'standorte' && renderStandorteTab()}
                 {activeTab === 'datenbank' && renderDatenbankTab()}
+                {activeTab === 'emails' && renderEmailsTab()}
             </div>
             {isUserModalOpen && <UserModal user={editingUser} allSkills={allSkills} onClose={() => setUserModalOpen(false)} onSave={handleSaveUser} />}
             {isLocationModalOpen && <AreaModal area={editingLocation} onClose={() => setLocationModalOpen(false)} onSave={handleSaveLocation} />}

@@ -59,6 +59,15 @@ export interface RoutingRule {
   skill: string;
 }
 
+export interface EmailLog {
+  id: string;
+  timestamp: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  ticketId: string;
+}
+
 export interface AppSettings {
   appName: string;
   logoUrl: string;
