@@ -1,12 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Ticket, Status } from '../types';
-import { TECHNICIANS_DATA, STATUSES, LOCATIONS_FOR_FILTER } from '../constants';
+import { Ticket, Status, User, Role } from '../types';
+import { STATUSES, LOCATIONS_FOR_FILTER } from '../constants';
 import { DocumentIcon } from './icons/DocumentIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { RefreshIcon } from './icons/RefreshIcon';
+import { ClockIcon } from './icons/ClockIcon';
 
 interface ReportsViewProps {
   tickets: Ticket[];
+  users: User[];
 }
 
 // --- HELPER FUNCTIONS ---
@@ -23,11 +25,6 @@ const parseGermanDate = (dateStr: string | undefined): Date | null => {
 const ExclamationTriangleIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-    </svg>
-);
-const WrenchScrewdriverIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.495-2.495a1.125 1.125 0 0 1 1.591 0l3.001 3.001a1.125 1.125 0 0 1 0 1.591l-2.495 2.495m-5.832-5.832 2.495-2.495a1.125 1.125 0 0 0 0-1.591l-3.001-3.001a1.125 1.125 0 0 0-1.591 0l-2.495 2.495m5.832 5.832L9.25 17.25" />
     </svg>
 );
 const CheckCircleIcon: React.FC = () => (
@@ -70,109 +67,15 @@ const HorizontalBarChart: React.FC<{ title: string; data: { label: string; value
     );
 };
 
-const DoughnutChart: React.FC<{ title: string; data: { label: string; value: number; color: string }[] }> = ({ title, data }) => {
-    const totalValue = data.reduce((sum, item) => sum + item.value, 0);
-    let cumulativePercent = 0;
-    const gradientParts = data.map(item => {
-        const percent = (item.value / totalValue) * 100;
-        const part = `${item.color} ${cumulativePercent}% ${cumulativePercent + percent}%`;
-        cumulativePercent += percent;
-        return part;
-    });
-    const conicGradient = `conic-gradient(${gradientParts.join(', ')})`;
-
-    return (
-        <div className="chart-container">
-            <h3 className="chart-title">{title}</h3>
-            {data.length > 0 ? (
-                <div className="doughnut-chart-area">
-                    <div className="doughnut-chart" style={{ background: conicGradient }}>
-                        <div className="doughnut-center">
-                            <span className="doughnut-total-value">{totalValue}</span>
-                            <span className="doughnut-total-label">Tickets</span>
-                        </div>
-                    </div>
-                    <div className="doughnut-legend">
-                        {data.map(item => (
-                            <div className="legend-item" key={item.label}>
-                                <span className="legend-color-dot" style={{ backgroundColor: item.color }}></span>
-                                <span className="legend-label">{item.label}</span>
-                                <span className="legend-value">{item.value}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            ) : <div className="no-data-placeholder">Keine Daten verfügbar.</div>}
-        </div>
-    );
-};
-
-const LineChart: React.FC<{ title: string; data: { date: string; created: number; completed: number }[] }> = ({ title, data }) => {
-    const maxValue = Math.max(...data.flatMap(d => [d.created, d.completed]), 10);
-    const yAxisLabels = Array.from({ length: 5 }, (_, i) => Math.round(maxValue / 4 * i)).reverse();
-
-    const createPath = (dataset: 'created' | 'completed', color: string) => {
-        if (data.length < 2) return null;
-        const points = data.map((d, i) => {
-            const x = (i / (data.length - 1)) * 100;
-            const y = 100 - (d[dataset] / maxValue) * 100;
-            return `${x},${y}`;
-        }).join(' ');
-        
-        return (
-            <>
-                <polyline fill="none" stroke={color} strokeWidth="2" points={points} vectorEffect="non-scaling-stroke" />
-                <polygon fill={`url(#gradient-${dataset})`} points={`0,100 ${points} 100,100`} />
-            </>
-        );
-    };
-
-    return (
-        <div className="chart-container full-width">
-            <h3 className="chart-title">{title}</h3>
-            {data.length > 0 ? (
-                <div className="line-chart-area">
-                    <div className="y-axis">
-                        {yAxisLabels.map(label => <span key={label}>{label}</span>)}
-                    </div>
-                    <div className="line-chart-svg-wrapper">
-                        <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-                            <defs>
-                                <linearGradient id="gradient-created" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.3"/>
-                                    <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0"/>
-                                </linearGradient>
-                                <linearGradient id="gradient-completed" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="var(--accent-success)" stopOpacity="0.3"/>
-                                    <stop offset="100%" stopColor="var(--accent-success)" stopOpacity="0"/>
-                                </linearGradient>
-                            </defs>
-                            {createPath('created', 'var(--accent-primary)')}
-                            {createPath('completed', 'var(--accent-success)')}
-                        </svg>
-                    </div>
-                     <div className="x-axis">
-                        <span>{data[0]?.date}</span>
-                        <span>{data[Math.floor(data.length / 2)]?.date}</span>
-                        <span>{data[data.length-1]?.date}</span>
-                    </div>
-                     <div className="line-chart-legend">
-                        <div className="legend-item"><span className="legend-color-dot" style={{backgroundColor: 'var(--accent-primary)'}}></span>Neu erstellt</div>
-                        <div className="legend-item"><span className="legend-color-dot" style={{backgroundColor: 'var(--accent-success)'}}></span>Abgeschlossen</div>
-                    </div>
-                </div>
-            ) : <div className="no-data-placeholder">Keine Daten für Trendanalyse verfügbar.</div>}
-        </div>
-    );
-};
-
 // --- MAIN COMPONENT ---
-const ReportsView: React.FC<ReportsViewProps> = ({ tickets }) => {
+const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
     const [reportFilters, setReportFilters] = useState({
         timeRange: '30d' as '7d' | '30d' | '90d' | 'all',
         area: 'Alle', status: 'Alle', technician: 'Alle'
     });
-    const allTechnicians = useMemo(() => ['Alle', ...TECHNICIANS_DATA.map(t => t.name)], []);
+    
+    const technicians = useMemo(() => users.filter(u => u.role === Role.Technician), [users]);
+    const allTechnicianNames = useMemo(() => ['Alle', ...technicians.map(t => t.name)], [technicians]);
 
     const filteredTickets = useMemo(() => {
         return tickets.filter(ticket => {
@@ -196,21 +99,20 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets }) => {
         const total = filteredTickets.length;
         const abgeschlossene = filteredTickets.filter(t => t.status === Status.Abgeschlossen).length;
         const ueberfaellige = filteredTickets.filter(t => t.status === Status.Ueberfaellig).length;
-        const resolvedTickets = filteredTickets.filter(t => t.completionDate && t.entryDate);
-        let avgResolutionTime = 0;
+        const resolvedTickets = filteredTickets.filter(t => t.status === Status.Abgeschlossen && t.completionDate && t.entryDate);
+        let avgProcessingTime = 0;
         if (resolvedTickets.length > 0) {
             const totalTime = resolvedTickets.reduce((acc: number, t) => {
                 const entry = parseGermanDate(t.entryDate);
                 const completion = parseGermanDate(t.completionDate);
                 if (entry && completion) {
-// FIX: Use .getTime() for robust date subtraction to resolve arithmetic operation error.
                     return acc + (completion.getTime() - entry.getTime());
                 }
                 return acc;
             }, 0);
-            avgResolutionTime = totalTime / resolvedTickets.length / (1000 * 60 * 60 * 24);
+            avgProcessingTime = totalTime / resolvedTickets.length / (1000 * 60 * 60 * 24);
         }
-        return { total, abgeschlossene, ueberfaellige, avgResolutionTime: avgResolutionTime.toFixed(1) };
+        return { total, abgeschlossene, ueberfaellige, avgProcessingTime: avgProcessingTime.toFixed(1) };
     }, [filteredTickets]);
 
     const ticketsByArea = useMemo(() => {
@@ -222,67 +124,76 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets }) => {
     }, [filteredTickets]);
 
     const ticketsByTechnician = useMemo(() => {
-        // FIX: Explicitly type accumulator in reduce to fix potential type inference issues.
-        const counts = filteredTickets.reduce((acc: Record<string, number>, ticket) => {
-            if (ticket.technician && ticket.technician !== 'N/A') {
-                 acc[ticket.technician] = (acc[ticket.technician] || 0) + 1;
+        const counts: Record<string, number> = {};
+        
+        // Initialize all technicians
+        technicians.forEach(tech => {
+            counts[tech.name] = 0;
+        });
+
+        filteredTickets.forEach(ticket => {
+            if (ticket.technician && ticket.technician !== 'N/A' && counts[ticket.technician] !== undefined) {
+                 counts[ticket.technician] += 1;
             }
-            return acc;
-        }, {} as Record<string, number>);
+        });
 
         const sorted = Object.entries(counts).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
         
         const colors = ['#0d6efd', '#6f42c1', '#dc3545', '#fd7e14', '#198754', '#6c757d', '#343a40', '#adb5bd'];
         return sorted.map((item, index) => ({...item, color: colors[index % colors.length]}));
-    }, [filteredTickets]);
+    }, [filteredTickets, technicians]);
 
     const technicianWorkload = useMemo(() => {
         const activeTickets = filteredTickets.filter(t => t.status !== Status.Abgeschlossen);
         const totalActiveTickets = activeTickets.length;
-        if (totalActiveTickets === 0) return [];
         
-        // FIX: Explicitly type accumulator in reduce to fix potential type inference issues.
-        const counts = activeTickets.reduce((acc: Record<string, number>, ticket) => {
-             if (ticket.technician && ticket.technician !== 'N/A') {
-                acc[ticket.technician] = (acc[ticket.technician] || 0) + 1;
-            }
-            return acc;
-        }, {} as Record<string, number>);
+        const counts: Record<string, number> = {};
+        // Initialize all technicians
+        technicians.forEach(tech => {
+            counts[tech.name] = 0;
+        });
 
-        return Object.entries(counts)
-            .map(([label, value]) => ({ label, value: (value / totalActiveTickets) * 100 }))
-            .sort((a, b) => b.value - a.value);
-
-    }, [filteredTickets]);
-    
-    const ticketTrendData = useMemo(() => {
-        if (reportFilters.timeRange === 'all') return [];
-        const days = { '7d': 7, '30d': 30, '90d': 90 }[reportFilters.timeRange];
-        const today = new Date(2026, 1, 7);
-        const dailyData: Record<string, { created: number, completed: number }> = {};
-        
-        for (let i = 0; i < days; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() - i);
-            const dateString = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-            dailyData[dateString] = { created: 0, completed: 0 };
-        }
-
-        filteredTickets.forEach(ticket => {
-            const entryDate = parseGermanDate(ticket.entryDate);
-            if (entryDate) {
-                const dateString = entryDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                if (dailyData[dateString]) dailyData[dateString].created++;
-            }
-            const completionDate = parseGermanDate(ticket.completionDate);
-            if (completionDate) {
-                const dateString = completionDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-                 if (dailyData[dateString]) dailyData[dateString].completed++;
+        activeTickets.forEach(ticket => {
+             if (ticket.technician && ticket.technician !== 'N/A' && counts[ticket.technician] !== undefined) {
+                counts[ticket.technician] += 1;
             }
         });
-        
-        return Object.entries(dailyData).map(([date, values]) => ({ date, ...values })).reverse();
-    }, [filteredTickets, reportFilters.timeRange]);
+
+        return Object.entries(counts)
+            .map(([label, value]) => ({ 
+                label, 
+                value: totalActiveTickets > 0 ? (value / totalActiveTickets) * 100 : 0 
+            }))
+            .sort((a, b) => b.value - a.value);
+
+    }, [filteredTickets, technicians]);
+    
+    const avgProcessingTimePerTechnician = useMemo(() => {
+        const resolvedTickets = filteredTickets.filter(t => t.status === Status.Abgeschlossen && t.completionDate && t.entryDate && t.technician !== 'N/A');
+        const techData: Record<string, { totalTime: number, count: number }> = {};
+
+        // Initialisiere alle Techniker mit 0
+        technicians.forEach(tech => {
+            techData[tech.name] = { totalTime: 0, count: 0 };
+        });
+
+        resolvedTickets.forEach(t => {
+            const entry = parseGermanDate(t.entryDate);
+            const completion = parseGermanDate(t.completionDate);
+            if (entry && completion && techData[t.technician]) {
+                const time = (completion.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24);
+                techData[t.technician].totalTime += time;
+                techData[t.technician].count += 1;
+            }
+        });
+
+        return Object.entries(techData)
+            .map(([label, data]) => ({
+                label,
+                value: data.count > 0 ? data.totalTime / data.count : 0
+            }))
+            .sort((a, b) => b.value - a.value);
+    }, [filteredTickets, technicians]);
 
     const handleFilterChange = (filterName: string, value: string) => setReportFilters(prev => ({ ...prev, [filterName]: value as any }));
     const resetFilters = () => setReportFilters({ timeRange: '30d', area: 'Alle', status: 'Alle', technician: 'Alle' });
@@ -338,12 +249,12 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets }) => {
 
                 /* Horizontal Bar Chart */
                 .h-bar-chart { display: flex; flex-direction: column; gap: 1rem; }
-                .h-bar-row { display: grid; grid-template-columns: 100px 1fr 40px; gap: 0.75rem; align-items: center; animation: slideIn 0.5s ease-out forwards; opacity: 0; }
+                .h-bar-row { display: grid; grid-template-columns: 100px 1fr 80px; gap: 0.75rem; align-items: center; animation: slideIn 0.5s ease-out forwards; opacity: 0; }
                 @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
                 .h-bar-label { font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .h-bar-wrapper { background-color: var(--bg-tertiary); border-radius: 4px; height: 16px; }
                 .h-bar { height: 100%; border-radius: 4px; background: var(--bar-color, var(--accent-primary)); width: var(--bar-width, 0%); transition: width 0.5s ease-out; }
-                .h-bar-value { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); text-align: right; }
+                .h-bar-value { font-size: 0.8rem; font-weight: 500; color: var(--text-primary); text-align: right; white-space: nowrap; }
                 
                 /* Line Chart */
                 .line-chart-area { flex-grow: 1; display: grid; grid-template-columns: auto 1fr; grid-template-rows: 1fr auto; }
@@ -369,7 +280,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets }) => {
                 </div>
                 <FilterChip label="Bereich" name="area" options={LOCATIONS_FOR_FILTER} value={reportFilters.area} />
                 <FilterChip label="Status" name="status" options={STATUSES} value={reportFilters.status} />
-                <FilterChip label="Techniker" name="technician" options={allTechnicians} value={reportFilters.technician} />
+                <FilterChip label="Techniker" name="technician" options={allTechnicianNames} value={reportFilters.technician} />
                 <button className="action-btn" onClick={resetFilters}><RefreshIcon />Zurücksetzen</button>
             </div>
             
@@ -377,7 +288,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets }) => {
                 <StatCard title="Gesamte Tickets" value={stats.total} description="Im ausgewählten Zeitraum" icon={<DocumentIcon />} iconBgColor="rgba(0, 123, 255, 0.1)" />
                 <StatCard title="Abgeschlossen" value={stats.abgeschlossene} description="Im ausgewählten Zeitraum" icon={<CheckCircleIcon />} iconBgColor="rgba(40, 167, 69, 0.1)" />
                 <StatCard title="Überfällig" value={stats.ueberfaellige} description="Aktuell überfällige Tickets" icon={<ExclamationTriangleIcon />} iconBgColor="rgba(220, 53, 69, 0.1)" />
-                <StatCard title="Lösungszeit (Ø)" value={`${stats.avgResolutionTime} Tage`} description="Für abgeschlossene Tickets" icon={<WrenchScrewdriverIcon />} iconBgColor="rgba(255, 193, 7, 0.1)" />
+                <StatCard title="Bearbeitungszeit (Ø)" value={`${stats.avgProcessingTime} Tage`} description="Für abgeschlossene Tickets" icon={<ClockIcon />} iconBgColor="rgba(255, 193, 7, 0.1)" />
             </div>
             
             <div className="charts-grid">
@@ -386,9 +297,14 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets }) => {
                     <HorizontalBarChart title="Ticket-Verteilung pro Techniker" data={ticketsByTechnician} />
                     <HorizontalBarChart title="Prozentuale Auslastung (Aktive Tickets)" data={technicianWorkload} barColor="linear-gradient(90deg, #198754, #0d6efd)" valueSuffix="%" />
                 </div>
-                {reportFilters.timeRange !== 'all' && (
-                    <LineChart title={`Ticket-Trend (${timeRangeOptions[reportFilters.timeRange]})`} data={ticketTrendData} />
-                )}
+                <div className="chart-container full-width">
+                    <HorizontalBarChart 
+                        title="Durchschnittliche Bearbeitungszeit pro Techniker (Tage)" 
+                        data={avgProcessingTimePerTechnician} 
+                        barColor="var(--accent-primary)"
+                        valueSuffix=" Tage"
+                    />
+                </div>
             </div>
         </div>
     );
