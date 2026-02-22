@@ -16,7 +16,8 @@
     "noUnusedParameters": false,
     "noImplicitAny": false,
     "strictNullChecks": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "types": ["vite/client"]
   },
   "include": ["."],
   "exclude": ["node_modules", "dist", "vite.config.ts", "src"],

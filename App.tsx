@@ -1,12 +1,10 @@
 
-
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule } from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
+import { supabase } from './supabaseClient';
 
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -21,6 +19,34 @@ import ErledigtTableView from './components/ErledigtTableView';
 import ReportsView from './components/ReportsView';
 import TechnicianView from './components/TechnicianView';
 import SettingsView from './components/SettingsView';
+
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', color: 'red' }}>
+          <h1>Something went wrong.</h1>
+          <pre>{this.state.error?.toString()}</pre>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const LOCAL_STORAGE_KEY_TICKETS = 'facility-management-tickets';
 const LOCAL_STORAGE_KEY_USERS = 'facility-management-users';
@@ -142,38 +168,105 @@ const assignTicket = (
             assignedTechnician = techniciansWithLoad[0].name;
         }
     }
-
-    // Fallback: If no rule matched or no skilled technician found, assign to least busy available technician
-    if (assignedTechnician === 'N/A') {
-        const availableTechnicians = users.filter(u => 
-            u.role === Role.Technician && 
-            u.isActive && 
-            u.availability.status === AvailabilityStatus.Available
-        );
-
-        if (availableTechnicians.length > 0) {
-            const techniciansWithLoad = availableTechnicians.map(tech => ({
-                ...tech,
-                load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
-            }));
-            techniciansWithLoad.sort((a, b) => a.load - b.load);
-            assignedTechnician = techniciansWithLoad[0].name;
-        }
-    }
-
     return assignedTechnician;
 };
 
+const safeJSONParse = <T,>(key: string, fallback: T): T => {
+    try {
+        const item = window.localStorage.getItem(key);
+        return item ? JSON.parse(item) : fallback;
+    } catch (error) {
+        console.error(`Error parsing ${key} from localStorage:`, error);
+        return fallback;
+    }
+};
+
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => JSON.parse(window.localStorage.getItem('currentUser') || 'null'));
+  const [currentUser, setCurrentUser] = useState<User | null>(() => safeJSONParse('currentUser', null));
 
   // --- Main Data State ---
-  const [tickets, setTickets] = useState<Ticket[]>(() => JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_TICKETS) || 'null') || MOCK_TICKETS);
-  const [users, setUsers] = useState<User[]>(() => JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_USERS) || 'null') || MOCK_USERS);
-  const [locations, setLocations] = useState<Location[]>(() => JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_LOCATIONS) || 'null') || MOCK_LOCATIONS);
-  const [assets, setAssets] = useState<Asset[]>(() => JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_ASSETS) || 'null') || MOCK_ASSETS);
-  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_PLANS) || 'null') || MOCK_MAINTENANCE_PLANS);
-  const [appSettings, setAppSettings] = useState<AppSettings>(() => ({ ...DEFAULT_APP_SETTINGS, ...JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY_SETTINGS) || '{}') }));
+  const [tickets, setTickets] = useState<Ticket[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_TICKETS, MOCK_TICKETS));
+  const [users, setUsers] = useState<User[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_USERS, MOCK_USERS));
+  const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, MOCK_LOCATIONS));
+  const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, MOCK_ASSETS));
+  const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_PLANS, MOCK_MAINTENANCE_PLANS));
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => ({ ...DEFAULT_APP_SETTINGS, ...safeJSONParse(LOCAL_STORAGE_KEY_SETTINGS, {}) }));
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
+  const isRemoteUpdate = useRef(false);
+
+  // --- Supabase Sync Logic ---
+  useEffect(() => {
+    if (!supabase) return;
+
+    const fetchData = async () => {
+      setIsSyncing(true);
+      try {
+        const { data, error } = await supabase.from('app_data').select('*');
+        if (error) throw error;
+
+        if (data) {
+          isRemoteUpdate.current = true;
+          data.forEach((item: { key: string; value: any }) => {
+            switch (item.key) {
+              case LOCAL_STORAGE_KEY_TICKETS: setTickets(item.value); break;
+              case LOCAL_STORAGE_KEY_USERS: setUsers(item.value); break;
+              case LOCAL_STORAGE_KEY_LOCATIONS: setLocations(item.value); break;
+              case LOCAL_STORAGE_KEY_ASSETS: setAssets(item.value); break;
+              case LOCAL_STORAGE_KEY_PLANS: setMaintenancePlans(item.value); break;
+              case LOCAL_STORAGE_KEY_SETTINGS: setAppSettings(item.value); break;
+            }
+          });
+          setLastSyncTime(new Date());
+          // Reset after state updates have been processed
+          setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+        }
+      } catch (err) {
+        console.error('Error fetching from Supabase:', err);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    fetchData();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('app_data_changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'app_data' }, (payload) => {
+        const { key, value } = payload.new as { key: string; value: any };
+        isRemoteUpdate.current = true;
+        switch (key) {
+          case LOCAL_STORAGE_KEY_TICKETS: setTickets(value); break;
+          case LOCAL_STORAGE_KEY_USERS: setUsers(value); break;
+          case LOCAL_STORAGE_KEY_LOCATIONS: setLocations(value); break;
+          case LOCAL_STORAGE_KEY_ASSETS: setAssets(value); break;
+          case LOCAL_STORAGE_KEY_PLANS: setMaintenancePlans(value); break;
+          case LOCAL_STORAGE_KEY_SETTINGS: setAppSettings(value); break;
+        }
+        setLastSyncTime(new Date());
+        // Reset after state updates have been processed
+        setTimeout(() => { isRemoteUpdate.current = false; }, 100);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const syncToSupabase = async (key: string, value: any) => {
+    if (!supabase || isRemoteUpdate.current) return;
+    try {
+      const { error } = await supabase
+        .from('app_data')
+        .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+      if (error) throw error;
+      setLastSyncTime(new Date());
+    } catch (err) {
+      console.error(`Error syncing ${key} to Supabase:`, err);
+    }
+  };
 
   // --- UI State ---
   const [filters, setFilters] = useState({ area: 'Alle', technician: 'Alle', priority: 'Alle', status: 'Alle', search: '' });
@@ -186,21 +279,46 @@ const App: React.FC = () => {
   const [selectedTicketIds, setSelectedTicketIds] = useState<string[]>([]);
 
   const prevUsersRef = useRef<User[]>();
+  const prevUsers = prevUsersRef.current; // Read BEFORE effect
+
   useEffect(() => {
-      prevUsersRef.current = users;
-  });
-  const prevUsers = prevUsersRef.current;
+      prevUsersRef.current = users; // Update AFTER effect
+  }, [users]);
 
 
   // --- Effects to persist state ---
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
-  useEffect(() => { localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets)); }, [tickets]);
-  useEffect(() => { localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users)); }, [users]);
-  useEffect(() => { localStorage.setItem(LOCAL_STORAGE_KEY_LOCATIONS, JSON.stringify(locations)); }, [locations]);
-  useEffect(() => { localStorage.setItem(LOCAL_STORAGE_KEY_ASSETS, JSON.stringify(assets)); }, [assets]);
-  useEffect(() => { localStorage.setItem(LOCAL_STORAGE_KEY_PLANS, JSON.stringify(maintenancePlans)); }, [maintenancePlans]);
-  useEffect(() => { localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(appSettings)); }, [appSettings]);
+  
+  useEffect(() => { 
+    localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(tickets));
+    syncToSupabase(LOCAL_STORAGE_KEY_TICKETS, tickets);
+  }, [tickets]);
+  
+  useEffect(() => { 
+    localStorage.setItem(LOCAL_STORAGE_KEY_USERS, JSON.stringify(users));
+    syncToSupabase(LOCAL_STORAGE_KEY_USERS, users);
+  }, [users]);
+  
+  useEffect(() => { 
+    localStorage.setItem(LOCAL_STORAGE_KEY_LOCATIONS, JSON.stringify(locations));
+    syncToSupabase(LOCAL_STORAGE_KEY_LOCATIONS, locations);
+  }, [locations]);
+  
+  useEffect(() => { 
+    localStorage.setItem(LOCAL_STORAGE_KEY_ASSETS, JSON.stringify(assets));
+    syncToSupabase(LOCAL_STORAGE_KEY_ASSETS, assets);
+  }, [assets]);
+  
+  useEffect(() => { 
+    localStorage.setItem(LOCAL_STORAGE_KEY_PLANS, JSON.stringify(maintenancePlans));
+    syncToSupabase(LOCAL_STORAGE_KEY_PLANS, maintenancePlans);
+  }, [maintenancePlans]);
+  
+  useEffect(() => { 
+    localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(appSettings));
+    syncToSupabase(LOCAL_STORAGE_KEY_SETTINGS, appSettings);
+  }, [appSettings]);
 
   // --- Core App Logic Effects ---
   // Automatic Ticket Re-assignment on Technician Leave
@@ -208,58 +326,123 @@ const App: React.FC = () => {
       if (!prevUsers || prevUsers.length === 0) return;
 
       const newlyAbsentUsers = users.filter(user => {
-          const prevUser = prevUsers.find(p => p.id === user.id);
-          return prevUser &&
+          const prevUser = prevUsers?.find(p => p.id === user.id);
+          // Safety check: ensure both current and previous user objects have availability defined
+          return prevUser && 
+              prevUser.availability && 
+              user.availability &&
               prevUser.availability.status !== AvailabilityStatus.OnLeave &&
               user.availability.status === AvailabilityStatus.OnLeave;
       });
 
       if (newlyAbsentUsers.length > 0) {
-          let ticketsToUpdate = [...tickets];
-          let updated = false;
+          console.log("Redistribution triggered for:", newlyAbsentUsers.map(u => u.name));
+          
+          // Use functional update to avoid 'tickets' dependency loop
+          setTickets(currentTickets => {
+              let ticketsToUpdate = [...currentTickets];
+              let updated = false;
+              let movedTotal = 0;
 
-          newlyAbsentUsers.forEach(absentUser => {
-              const today = new Date();
-              const threeDaysFromNow = new Date();
-              threeDaysFromNow.setDate(today.getDate() + 3);
+              // Find available technicians for redistribution
+              const availableTechnicians = users.filter(u => 
+                  u.role === Role.Technician && 
+                  u.isActive && 
+                  u.availability && // Safety check
+                  (u.availability.status === AvailabilityStatus.Available)
+              );
 
-              const criticalTickets = tickets.filter(t => {
-                  if (t.technician !== absentUser.name || t.status === Status.Abgeschlossen) return false;
-                  if (t.priority === Priority.Hoch) return true;
-                  if (t.status === Status.Ueberfaellig) return true;
-                  const dueDate = parseGermanDate(t.dueDate);
-// FIX: Use .getTime() for robust date comparison to resolve arithmetic operation error.
-                  if (dueDate && dueDate.getTime() <= threeDaysFromNow.getTime()) return true;
-                  return false;
+              if (availableTechnicians.length === 0) {
+                  console.warn("No available technicians for redistribution.");
+                  alert("Warnung: Ein Techniker ist jetzt abwesend, aber es gibt keine verfügbaren Kollegen für die Umverteilung!");
+                  return currentTickets; 
+              }
+
+              // Calculate load for each available technician
+              const techLoadMap = new Map<string, number>();
+              availableTechnicians.forEach(tech => {
+                  const currentLoad = currentTickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
+                  techLoadMap.set(tech.name, currentLoad);
               });
 
-              criticalTickets.forEach(ticket => {
-                  const newTechnician = assignTicket(ticket, users, ticketsToUpdate, appSettings.routingRules);
-                  if (newTechnician !== 'N/A' && newTechnician !== absentUser.name) {
-                      const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
-                      if (ticketIndex !== -1) {
-                          const date = new Date();
-                          const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
-                          const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                          const note = `Ticket automatisch von ${absentUser.name} an ${newTechnician} umverteilt wegen Abwesenheit. (System am ${formattedDate}, ${formattedTime})`;
+              newlyAbsentUsers.forEach(absentUser => {
+                  console.log(`Processing absent user: ${absentUser.name}`);
+                  const leaveUntilDate = parseISODate(absentUser.availability.leaveUntil);
+                  
+                  // If leaveUntil is set, set time to end of day to include tickets due on that day
+                  if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
 
-                          const originalTicket = ticketsToUpdate[ticketIndex];
-                          ticketsToUpdate[ticketIndex] = {
-                              ...originalTicket,
-                              technician: newTechnician,
-                              notes: [...(originalTicket.notes || []), note]
-                          };
-                          updated = true;
+                  const criticalTickets = currentTickets.filter(t => {
+                      if (t.technician !== absentUser.name || t.status === Status.Abgeschlossen) return false;
+                      
+                      // If NO return date is set (indefinite absence), move ALL open tickets
+                      if (!leaveUntilDate) return true;
+                      
+                      // Criteria 1: High Priority
+                      if (t.priority === Priority.Hoch) return true;
+                      
+                      // Criteria 2: Overdue
+                      if (t.status === Status.Ueberfaellig) return true;
+                      
+                      // Criteria 3: Due Date falls within absence period
+                      if (t.dueDate) {
+                          const dueDate = parseGermanDate(t.dueDate);
+                          // If ticket has a due date and it is before or on the leaveUntil date
+                          if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) {
+                              return true;
+                          }
                       }
+                      
+                      return false;
+                  });
+
+                  console.log(`Found ${criticalTickets.length} tickets to redistribute for ${absentUser.name}`);
+
+                  if (criticalTickets.length > 0) {
+                      criticalTickets.forEach(ticket => {
+                          // Sort by load (ascending) to find the least busy technician at this moment
+                          availableTechnicians.sort((a, b) => {
+                              const loadA = techLoadMap.get(a.name) || 0;
+                              const loadB = techLoadMap.get(b.name) || 0;
+                              return loadA - loadB;
+                          });
+                          
+                          const targetTech = availableTechnicians[0];
+
+                          if (targetTech) {
+                              const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
+                              if (ticketIndex !== -1) {
+                                  const date = new Date();
+                                  const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
+                                  const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                  const note = `AUTO-UMVERTEILUNG: Von ${absentUser.name} an ${targetTech.name}. Grund: Abwesend bis ${absentUser.availability.leaveUntil || 'unbekannt'}. (${formattedDate}, ${formattedTime})`;
+
+                                  const originalTicket = ticketsToUpdate[ticketIndex];
+                                  ticketsToUpdate[ticketIndex] = {
+                                      ...originalTicket,
+                                      technician: targetTech.name,
+                                      notes: [...(originalTicket.notes || []), note]
+                                  };
+                                  updated = true;
+                                  movedTotal++;
+                                  
+                                  // Increment load for the target technician so the next ticket might go to someone else
+                                  const currentLoad = techLoadMap.get(targetTech.name) || 0;
+                                  techLoadMap.set(targetTech.name, currentLoad + 1);
+                              }
+                          }
+                      });
                   }
               });
-          });
 
-          if (updated) {
-              setTickets(ticketsToUpdate);
-          }
+              if (updated) {
+                  alert(`Erfolg: ${movedTotal} Tickets wurden automatisch umverteilt.`);
+                  return ticketsToUpdate;
+              }
+              return currentTickets;
+          });
       }
-  }, [users, tickets, appSettings.routingRules]);
+  }, [users]); // Removed 'tickets' from dependency array to prevent loops
 
   // Maintenance Scheduler Simulation
   useEffect(() => {
@@ -387,7 +570,8 @@ const App: React.FC = () => {
     const determinedPriority = newTicketData.priority || category?.default_priority || appSettings.defaultPriority;
 
     // 2. Load-Balancing Technician Assignment
-    const assignedTechnician = assignTicket(newTicketData, users, tickets, appSettings.routingRules);
+    // FIX: Pass an object with only the properties needed by assignTicket to resolve type error.
+    const assignedTechnician = assignTicket({ title: newTicketData.title, description: newTicketData.description }, users, tickets, appSettings.routingRules);
 
     // 3. SLA-based Due Date Calculation
     const slaRule = appSettings.slaMatrix.find(r => r.categoryId === newTicketData.categoryId && r.priority === determinedPriority);
@@ -413,13 +597,6 @@ const App: React.FC = () => {
     };
 
     setTickets(prevTickets => [newTicket, ...prevTickets]);
-    
-    if (newTicket.reporterEmail) {
-        console.log(`[E-Mail-Simulation] Sende Bestätigungs-E-Mail an: ${newTicket.reporterEmail}`);
-        console.log(`Betreff: Ihr Ticket #${newTicket.id} wurde erstellt`);
-        console.log(`Nachricht: Hallo ${newTicket.reporter},\n\nvielen Dank für Ihre Meldung "${newTicket.title}". Wir haben Ihr Ticket mit der ID ${newTicket.id} erhalten und werden es so schnell wie möglich bearbeiten.\n\nSie können den Status jederzeit im Portal überprüfen.\n\nMit freundlichen Grüßen,\nIhr ${appSettings.appName}-Team`);
-    }
-
     if (!silent) setIsModalOpen(false);
     return newTicket.id;
   };
@@ -582,88 +759,247 @@ const App: React.FC = () => {
     setGroupBy('none'); setSelectedTicketIds([]); setCurrentView(view);
   };
   
-  const handleUserUpdate = (updatedUser: User) => {
-      // Check if user is 'OnLeave' (Abwesend)
-      const isAbsent = updatedUser.availability.status === AvailabilityStatus.OnLeave || updatedUser.availability.status === 'Abwesend';
-
+  const handleUserUpdated = (user: User) => {
+      console.log("handleUserUpdated called for:", user.name);
+      
+      const status = user.availability?.status;
+      const isAbsent = status === AvailabilityStatus.OnLeave;
+      
       if (isAbsent) {
-          console.log(`User ${updatedUser.name} is absent. Checking for tickets to redistribute.`);
+          // Diagnostic collection
+          const userTickets = tickets.filter(t => t.technician === user.name && t.status !== Status.Abgeschlossen);
           
-          // Find available technicians
+          if (userTickets.length === 0) {
+              alert(`Info: Techniker ${user.name} hat aktuell keine offenen Tickets. Keine Umverteilung nötig.`);
+              return;
+          }
+
+          const leaveUntilDate = parseISODate(user.availability.leaveUntil);
+          if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
+
+          // 1. Identify tickets to move
+          const ticketsToMove = userTickets.filter(t => {
+              // If indefinite absence (no date), move ALL open tickets
+              if (!leaveUntilDate) return true;
+              
+              // Otherwise, check specific criteria for dated absence
+              if (t.priority === Priority.Hoch) return true;
+              if (t.status === Status.Ueberfaellig) return true;
+              
+              // Check due date
+              if (t.dueDate) {
+                  const dueDate = parseGermanDate(t.dueDate);
+                  if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) {
+                      return true;
+                  }
+              }
+              return false;
+          });
+
+          if (ticketsToMove.length === 0) {
+              alert(`Info: ${user.name} hat ${userTickets.length} offene Tickets, aber keines davon fällt in den Abwesenheitszeitraum (bis ${user.availability.leaveUntil}) oder ist kritisch.`);
+              return;
+          }
+
+          // 2. Identify available technicians
           const availableTechnicians = users.filter(u => 
-              u.id !== updatedUser.id && // Exclude the absent user
               u.role === Role.Technician && 
               u.isActive && 
-              (u.availability.status === AvailabilityStatus.Available || u.availability.status === 'Verfügbar')
+              (u.availability.status === AvailabilityStatus.Available) &&
+              u.id !== user.id
           );
 
           if (availableTechnicians.length === 0) {
-              const hasOpenTickets = tickets.some(t => t.technician === updatedUser.name && t.status !== Status.Abgeschlossen);
-              if (hasOpenTickets) {
-                  alert("Warnung: Dieser Techniker ist abwesend und hat offene Tickets, aber es gibt KEINE verfügbaren Kollegen für die Umverteilung!");
-              }
-          } else {
-              // Calculate load map
-              const techLoadMap = new Map<string, number>();
-              availableTechnicians.forEach(tech => {
-                  const currentLoad = tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
-                  techLoadMap.set(tech.name, currentLoad);
-              });
+              alert(`KRITISCH: Es wurden ${ticketsToMove.length} Tickets zur Umverteilung identifiziert, aber es gibt KEINE verfügbaren Techniker (Status 'Verfügbar').\n\nBitte setzen Sie einen anderen Techniker auf 'Verfügbar'.`);
+              return;
+          }
 
-              let ticketsToUpdate = [...tickets];
-              let movedTotal = 0;
+          // 3. Initialize Load Map
+          const techLoadMap = new Map<string, number>();
+          availableTechnicians.forEach(tech => {
+              const currentLoad = tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
+              techLoadMap.set(tech.name, currentLoad);
+          });
 
-              // Find tickets to move
-              const ticketsToMove = tickets.filter(t => 
-                  t.technician === updatedUser.name && 
-                  t.status !== Status.Abgeschlossen
-              );
+          let ticketsToUpdate = [...tickets];
+          let movedCount = 0;
 
-              if (ticketsToMove.length > 0) {
-                  ticketsToMove.forEach(ticket => {
-                      // Sort by load
-                      availableTechnicians.sort((a, b) => {
-                          const loadA = techLoadMap.get(a.name) || 0;
-                          const loadB = techLoadMap.get(b.name) || 0;
-                          return loadA - loadB;
-                      });
-
-                      const targetTech = availableTechnicians[0];
-                      if (targetTech) {
-                          const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
-                          if (ticketIndex !== -1) {
-                              const date = new Date();
-                              const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
-                              const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                              const note = `AUTO-UMVERTEILUNG: Von ${updatedUser.name} an ${targetTech.name}. Grund: Abwesend bis ${updatedUser.availability.leaveUntil || 'unbekannt'}. (${formattedDate}, ${formattedTime})`;
-
-                              const originalTicket = ticketsToUpdate[ticketIndex];
-                              ticketsToUpdate[ticketIndex] = {
-                                  ...originalTicket,
-                                  technician: targetTech.name,
-                                  notes: [...(originalTicket.notes || []), note]
-                              };
-                              movedTotal++;
-                              
-                              // Update load
-                              const currentLoad = techLoadMap.get(targetTech.name) || 0;
-                              techLoadMap.set(targetTech.name, currentLoad + 1);
-                          }
-                      }
-                  });
-
-                  if (movedTotal > 0) {
-                      setTickets(ticketsToUpdate);
-                      alert(`Erfolg: ${movedTotal} Tickets von ${updatedUser.name} wurden automatisch umverteilt.`);
-                  } else {
-                      console.log("No tickets moved despite candidates.");
+          // 4. Process each ticket
+          ticketsToMove.forEach(ticket => {
+              // A. Determine Required Skill
+              let requiredSkill: string | null = null;
+              for (const rule of appSettings.routingRules) {
+                  const keywords = rule.keyword.split(',').map(k => k.trim().toLowerCase());
+                  const textToSearch = `${ticket.title} ${ticket.description || ''}`.toLowerCase();
+                  if (keywords.some(k => k && textToSearch.includes(k))) {
+                      requiredSkill = rule.skill;
+                      break;
                   }
               }
+
+              // B. Filter Candidates based on Skill
+              let candidates = availableTechnicians;
+              if (requiredSkill) {
+                  const skilledCandidates = availableTechnicians.filter(u => u.skills.includes(requiredSkill!));
+                  if (skilledCandidates.length > 0) {
+                      candidates = skilledCandidates;
+                  }
+              }
+
+              // C. Find Candidate with Lowest Load
+              candidates.sort((a, b) => {
+                  const loadA = techLoadMap.get(a.name) || 0;
+                  const loadB = techLoadMap.get(b.name) || 0;
+                  return loadA - loadB;
+              });
+
+              const bestCandidate = candidates[0];
+
+              if (bestCandidate) {
+                  // D. Assign Ticket
+                  const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
+                  if (ticketIndex !== -1) {
+                      const date = new Date();
+                      const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
+                      const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                      
+                      const reason = leaveUntilDate ? `Abwesend bis ${user.availability.leaveUntil}` : 'Unbefristet abwesend';
+                      const skillNote = requiredSkill ? ` (Skill-Match: ${requiredSkill})` : '';
+                      const note = `AUTO-UMVERTEILUNG: Von ${user.name} zu ${bestCandidate.name}. Grund: ${reason}.${skillNote} (${formattedDate}, ${formattedTime})`;
+
+                      const originalTicket = ticketsToUpdate[ticketIndex];
+                      ticketsToUpdate[ticketIndex] = {
+                          ...originalTicket,
+                          technician: bestCandidate.name,
+                          notes: [...(originalTicket.notes || []), note]
+                      };
+                      
+                      // E. Update Load Immediately
+                      const currentLoad = techLoadMap.get(bestCandidate.name) || 0;
+                      techLoadMap.set(bestCandidate.name, currentLoad + 1);
+                      
+                      movedCount++;
+                  }
+              }
+          });
+
+          if (movedCount > 0) {
+              setTickets(ticketsToUpdate);
+              alert(`ERFOLG: ${movedCount} Tickets von ${user.name} wurden automatisch auf ${availableTechnicians.length} verfügbare Kollegen verteilt.`);
           }
       }
+  };
 
-      // Update user state
-      setUsers(current => current.map(u => (u.id === updatedUser.id ? updatedUser : u)));
+  const handleManualRedistribution = () => {
+      console.log("Manual redistribution triggered.");
+      
+      // 1. Identify absent users
+      const absentUsers = users.filter(u => 
+          u.role === Role.Technician && 
+          (u.availability.status === AvailabilityStatus.OnLeave)
+      );
+
+      if (absentUsers.length === 0) {
+          alert("Info: Es gibt aktuell keine abwesenden Techniker.");
+          return;
+      }
+
+      let ticketsToUpdate = [...tickets];
+      let movedTotal = 0;
+      let logMessages: string[] = [];
+
+      // 2. Find available technicians
+      const availableTechnicians = users.filter(u => 
+          u.role === Role.Technician && 
+          u.isActive && 
+          (u.availability.status === AvailabilityStatus.Available)
+      );
+
+      if (availableTechnicians.length === 0) {
+          alert("Warnung: Es gibt abwesende Techniker, aber KEINE verfügbaren Kollegen für eine Umverteilung!");
+          return;
+      }
+
+      // 3. Initialize Load Map
+      const techLoadMap = new Map<string, number>();
+      availableTechnicians.forEach(tech => {
+          const currentLoad = tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length;
+          techLoadMap.set(tech.name, currentLoad);
+      });
+
+      // 4. Process each absent user
+      absentUsers.forEach(absentUser => {
+          const leaveUntilDate = parseISODate(absentUser.availability.leaveUntil);
+          if (leaveUntilDate) leaveUntilDate.setHours(23, 59, 59, 999);
+
+          // Find tickets to move
+          const ticketsToMove = tickets.filter(t => {
+              if (t.technician !== absentUser.name || t.status === Status.Abgeschlossen) return false;
+              
+              // If indefinite absence, move all
+              if (!leaveUntilDate) return true;
+              
+              // Move high priority
+              if (t.priority === Priority.Hoch) return true;
+              
+              // Move overdue
+              if (t.status === Status.Ueberfaellig) return true;
+              
+              // Move if due date is within absence
+              if (t.dueDate) {
+                  const dueDate = parseGermanDate(t.dueDate);
+                  if (dueDate && dueDate.getTime() <= leaveUntilDate.getTime()) {
+                      return true;
+                  }
+              }
+              return false;
+          });
+
+          if (ticketsToMove.length === 0) {
+              logMessages.push(`- ${absentUser.name}: Keine kritischen Tickets gefunden.`);
+              return;
+          }
+
+          ticketsToMove.forEach(ticket => {
+              // Sort candidates by current load
+              availableTechnicians.sort((a, b) => {
+                  const loadA = techLoadMap.get(a.name) || 0;
+                  const loadB = techLoadMap.get(b.name) || 0;
+                  return loadA - loadB;
+              });
+
+              const targetTech = availableTechnicians[0];
+
+              if (targetTech) {
+                  const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
+                  if (ticketIndex !== -1) {
+                      const date = new Date();
+                      const formattedDate = date.toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric' });
+                      const formattedTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                      const note = `MANUELLE UMVERTEILUNG: Von ${absentUser.name} an ${targetTech.name}. Grund: Abwesend bis ${absentUser.availability.leaveUntil || 'unbekannt'}. (${formattedDate}, ${formattedTime})`;
+
+                      const originalTicket = ticketsToUpdate[ticketIndex];
+                      ticketsToUpdate[ticketIndex] = {
+                          ...originalTicket,
+                          technician: targetTech.name,
+                          notes: [...(originalTicket.notes || []), note]
+                      };
+                      
+                      movedTotal++;
+                      const currentLoad = techLoadMap.get(targetTech.name) || 0;
+                      techLoadMap.set(targetTech.name, currentLoad + 1);
+                  }
+              }
+          });
+          logMessages.push(`- ${absentUser.name}: ${ticketsToMove.length} Tickets umverteilt.`);
+      });
+
+      if (movedTotal > 0) {
+          setTickets(ticketsToUpdate);
+          alert(`Erfolg: ${movedTotal} Tickets wurden umverteilt.\n\nDetails:\n${logMessages.join('\n')}`);
+      } else {
+          alert(`Prüfung abgeschlossen. Keine Tickets mussten umverteilt werden.\n\nDetails:\n${logMessages.join('\n')}`);
+      }
   };
 
   const handleLogin = (user: User) => {
@@ -684,7 +1020,7 @@ const App: React.FC = () => {
         case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
         case 'reports': return <ReportsView tickets={tickets} />;
         case 'techniker': return <TechnicianView tickets={tickets} technicians={users.filter(u => u.role === Role.Technician)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
-        case 'settings': return <SettingsView users={users} setUsers={setUsers} onUpdateUser={handleUserUpdate} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} />;
+        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} />;
         default: return <KanbanBoard tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} />;
     }
   }
@@ -693,7 +1029,7 @@ const App: React.FC = () => {
     <div className="app-layout">
       <Sidebar appSettings={appSettings} isCollapsed={isSidebarCollapsed} setCollapsed={setSidebarCollapsed} theme={theme} setTheme={setTheme} currentView={currentView} setCurrentView={changeView} onLogout={handleLogout} userRole={currentUser.role} userName={currentUser.name} tickets={tickets} onNewTicketClick={() => setIsModalOpen(true)} onExportPDF={handleExportPDF} onExportCSV={handleExportCSV} />
       <main>
-        <Header stats={stats} filters={filters} setFilters={setFilters} currentView={currentView} />
+        <Header stats={stats} filters={filters} setFilters={setFilters} currentView={currentView} isSyncing={isSyncing} lastSyncTime={lastSyncTime} />
         {selectedTicketIds.length > 0 && (currentView === 'tickets' || currentView === 'erledigt') ? (
              <BulkActionBar selectedCount={selectedTicketIds.length} technicians={allTechnicianNames} statuses={Object.values(Status)} onBulkUpdate={handleBulkUpdate} onBulkDelete={handleBulkDelete} onClearSelection={() => setSelectedTicketIds([])} />
         ) : ( (currentView === 'dashboard' || currentView === 'tickets' || currentView === 'erledigt' || currentView === 'techniker') &&
