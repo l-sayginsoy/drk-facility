@@ -531,6 +531,51 @@ const App: React.FC = () => {
     const originalTicket = tickets.find(t => t.id === updatedTicket.id);
     if (!originalTicket) return;
 
+    // --- NEW: Prevent assignment to absent technicians ---
+    if (updatedTicket.technician !== 'N/A' && (updatedTicket.technician !== originalTicket.technician || originalTicket.technician === 'N/A')) {
+        const techUser = users.find(u => u.name === updatedTicket.technician);
+        if (techUser && techUser.availability.status === AvailabilityStatus.OnLeave) {
+            
+            // Attempt to find a substitute
+            let newTech = assignTicket({ title: updatedTicket.title, description: updatedTicket.description }, users, tickets, appSettings.routingRules);
+            
+            // If standard routing returns N/A or the SAME absent person (unlikely if users list is correct), try fallback
+            if (newTech === 'N/A' || newTech === techUser.name) {
+                // Fallback: Find any available technician with lowest load
+                const availableTechs = users.filter(u => 
+                    u.role === Role.Technician && 
+                    u.isActive && 
+                    u.availability.status === AvailabilityStatus.Available
+                );
+
+                if (availableTechs.length > 0) {
+                    const techsWithLoad = availableTechs.map(tech => ({
+                        ...tech,
+                        load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
+                    }));
+                    techsWithLoad.sort((a, b) => a.load - b.load);
+                    newTech = techsWithLoad[0].name;
+                } else {
+                    newTech = 'N/A';
+                }
+            }
+
+            if (newTech !== 'N/A' && newTech !== techUser.name) {
+                alert(`Hinweis: ${techUser.name} ist derzeit abwesend. Das Ticket wurde automatisch an ${newTech} umgeleitet.`);
+                updatedTicket.technician = newTech;
+                updatedTicket.notes = [
+                    ...(updatedTicket.notes || []), 
+                    `AUTO-KORREKTUR: Ursprünglich zugewiesen an abwesenden Techniker ${techUser.name}. Automatisch zugewiesen an ${newTech}.`
+                ];
+            } else {
+                alert(`Warnung: ${techUser.name} ist abwesend, aber es konnte kein verfügbarer Ersatz gefunden werden.`);
+                // We leave it as is, or set to N/A? User said "should not be allowed".
+                // But if no one else is there, maybe N/A is better.
+                updatedTicket.technician = 'N/A';
+            }
+        }
+    }
+
     // If ticket is being completed, set completion date
     if (updatedTicket.status === Status.Abgeschlossen && originalTicket.status !== Status.Abgeschlossen) {
         updatedTicket.completionDate = new Date().toLocaleDateString('de-DE', {
@@ -1040,7 +1085,7 @@ const App: React.FC = () => {
         {renderCurrentView()}
       </main>
       {isModalOpen && <NewTicketModal onClose={() => setIsModalOpen(false)} onSave={handleAddNewTicket} locations={activeLocations.map(a => a.name)} technicians={activeTechnicians} appSettings={appSettings} compressImage={compressImage}/>}
-      {selectedTicket && <TicketDetailSidebar ticket={selectedTicket} onClose={() => setSelectedTicket(null)} onUpdateTicket={handleTicketUpdate} technicians={allTechnicianNames} statuses={Object.values(Status)} currentUser={currentUser} appSettings={appSettings} />}
+      {selectedTicket && <TicketDetailSidebar ticket={selectedTicket} onClose={() => setSelectedTicket(null)} onUpdateTicket={handleTicketUpdate} users={users} statuses={Object.values(Status)} currentUser={currentUser} appSettings={appSettings} />}
     </div>
   );
 };

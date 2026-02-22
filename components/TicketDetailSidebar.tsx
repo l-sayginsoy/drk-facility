@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 // FIX: Import User type to align with App state
-import { Ticket, Status, Priority, Role, User, AppSettings } from '../types';
+import { Ticket, Status, Priority, Role, User, AppSettings, AvailabilityStatus } from '../types';
 import { XIcon } from './icons/XIcon';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { statusColorMap, statusBgColorMap } from '../constants';
@@ -45,16 +45,18 @@ interface TicketDetailSidebarProps {
   ticket: Ticket;
   onClose: () => void;
   onUpdateTicket: (ticket: Ticket) => void;
-  technicians: string[];
+  users: User[]; // Changed from technicians: string[]
   statuses: Status[];
-  // FIX: Use the correct User type for currentUser prop
   currentUser: User | null;
   appSettings: AppSettings;
 }
 
-const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClose, onUpdateTicket, technicians, statuses, currentUser, appSettings }) => {
+const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClose, onUpdateTicket, users, statuses, currentUser, appSettings }) => {
     const [viewingImageSrc, setViewingImageSrc] = useState<string | null>(null);
     const [newNote, setNewNote] = useState('');
+
+    // Filter technicians from users
+    const technicians = users.filter(u => u.role === Role.Technician);
 
     useEffect(() => {
         // Mark note as read when opening details
@@ -417,7 +419,12 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
                     <div className={`editable-field-compact`}>
                         <span>{formatTechnicianName(ticket.technician)}</span><ChevronDownIcon />
                         <select value={ticket.technician} onChange={(e) => handleFieldChange('technician', e.target.value)}>
-                            {technicians.map(t => <option key={t} value={t}>{t === 'N/A' ? 'Zuweisen' : t}</option>)}
+                            <option value="N/A">Zuweisen</option>
+                            {technicians.map(t => (
+                                <option key={t.id} value={t.name}>
+                                    {t.name} {t.availability.status === AvailabilityStatus.OnLeave ? '(Abwesend)' : ''}
+                                </option>
+                            ))}
                         </select>
                     </div>
                 </div>
