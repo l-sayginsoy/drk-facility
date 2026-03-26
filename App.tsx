@@ -2,7 +2,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule, EmailLog } from './types';
+import { 
+  Ticket, Status, Priority, Role, GroupableKey, User, Location, AppSettings, Asset, MaintenancePlan, AvailabilityStatus, RoutingRule 
+} from './types';
 import { MOCK_TICKETS, MOCK_USERS, MOCK_LOCATIONS, STATUSES, DEFAULT_APP_SETTINGS, MOCK_ASSETS, MOCK_MAINTENANCE_PLANS } from './constants';
 import { supabase } from './supabaseClient';
 
@@ -190,7 +192,6 @@ const App: React.FC = () => {
   const [locations, setLocations] = useState<Location[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_LOCATIONS, MOCK_LOCATIONS));
   const [assets, setAssets] = useState<Asset[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_ASSETS, MOCK_ASSETS));
   const [maintenancePlans, setMaintenancePlans] = useState<MaintenancePlan[]>(() => safeJSONParse(LOCAL_STORAGE_KEY_PLANS, MOCK_MAINTENANCE_PLANS));
-  const [emailLogs, setEmailLogs] = useState<EmailLog[]>(() => safeJSONParse('facility-management-email-logs', []));
   const [appSettings, setAppSettings] = useState<AppSettings>(() => ({ ...DEFAULT_APP_SETTINGS, ...safeJSONParse(LOCAL_STORAGE_KEY_SETTINGS, {}) }));
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
@@ -217,7 +218,6 @@ const App: React.FC = () => {
               case LOCAL_STORAGE_KEY_ASSETS: setAssets(item.value); break;
               case LOCAL_STORAGE_KEY_PLANS: setMaintenancePlans(item.value); break;
               case LOCAL_STORAGE_KEY_SETTINGS: setAppSettings(item.value); break;
-              case 'facility-management-email-logs': setEmailLogs(item.value); break;
             }
           });
           setLastSyncTime(new Date());
@@ -246,7 +246,6 @@ const App: React.FC = () => {
           case LOCAL_STORAGE_KEY_ASSETS: setAssets(value); break;
           case LOCAL_STORAGE_KEY_PLANS: setMaintenancePlans(value); break;
           case LOCAL_STORAGE_KEY_SETTINGS: setAppSettings(value); break;
-          case 'facility-management-email-logs': setEmailLogs(value); break;
         }
         setLastSyncTime(new Date());
         // Reset after state updates have been processed
@@ -315,11 +314,6 @@ const App: React.FC = () => {
     localStorage.setItem(LOCAL_STORAGE_KEY_SETTINGS, JSON.stringify(appSettings));
     syncToSupabase(LOCAL_STORAGE_KEY_SETTINGS, appSettings);
   }, [appSettings]);
-
-  useEffect(() => { 
-    localStorage.setItem('facility-management-email-logs', JSON.stringify(emailLogs));
-    syncToSupabase('facility-management-email-logs', emailLogs);
-  }, [emailLogs]);
 
   // --- Core App Logic Effects ---
   // Automatic Ticket Re-assignment on Technician Leave OR Return
@@ -572,24 +566,6 @@ const App: React.FC = () => {
     }
   }, [tickets]); // Reruns whenever tickets change
 
-  const sendSimulatedEmail = (ticket: Ticket, type: 'created' | 'updated') => {
-    if (!ticket.reporterEmail) return;
-
-    const newLog: EmailLog = {
-      id: `LOG-${Date.now()}`,
-      timestamp: new Date().toLocaleString('de-DE'),
-      recipient: ticket.reporterEmail,
-      ticketId: ticket.id,
-      subject: type === 'created' ? `Ticket Erhalten: ${ticket.id}` : `Status-Update für Ticket: ${ticket.id}`,
-      body: type === 'created' 
-        ? `Hallo ${ticket.reporter},\n\nvielen Dank für Ihre Meldung. Ihr Ticket mit der ID ${ticket.id} wurde erfolgreich erstellt und wird nun bearbeitet.\n\nBetreff: ${ticket.title}\nStatus: ${ticket.status}\n\nSie können den Status jederzeit im Portal prüfen.`
-        : `Hallo ${ticket.reporter},\n\nder Status Ihres Tickets ${ticket.id} wurde aktualisiert.\n\nNeuer Status: ${ticket.status}\n\nMit freundlichen Grüßen,\nIhre Haustechnik`
-    };
-
-    setEmailLogs(prev => [newLog, ...prev].slice(0, 50));
-    console.log("SIMULIERTE E-MAIL GESENDET:", newLog);
-  };
-
   const handleTicketUpdate = (updatedTicket: Ticket) => {
     const originalTicket = tickets.find(t => t.id === updatedTicket.id);
     if (!originalTicket) return;
@@ -660,9 +636,7 @@ const App: React.FC = () => {
     }
 
     setTickets(prev => prev.map(t => (t.id === updatedTicket.id ? updatedTicket : t)));
-    if (statusChanged) {
-        sendSimulatedEmail(updatedTicket, 'updated');
-    }
+    
     if (selectedTicket && selectedTicket.id === updatedTicket.id) {
         setSelectedTicket(updatedTicket);
     }
@@ -732,7 +706,7 @@ const App: React.FC = () => {
     };
 
     setTickets(prevTickets => [newTicket, ...prevTickets]);
-    sendSimulatedEmail(newTicket, 'created');
+    
     if (!silent) setIsModalOpen(false);
     return newTicket.id;
   };
@@ -1156,7 +1130,7 @@ const App: React.FC = () => {
         case 'erledigt': return <ErledigtTableView tickets={filteredTickets} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} onDeleteTicket={handleDeleteTicket} />;
         case 'reports': return <ReportsView tickets={tickets} users={users} />;
         case 'techniker': return <TechnicianView tickets={tickets} technicians={users.filter(u => u.role === Role.Technician)} onTechnicianSelect={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} onFilter={(f) => { setFilters(prev => ({ ...prev, ...f })); setCurrentView('tickets');}} />;
-        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} emailLogs={emailLogs} />;
+        case 'settings': return <SettingsView users={users} setUsers={setUsers} locations={locations} setLocations={setLocations} assets={assets} setAssets={setAssets} maintenancePlans={maintenancePlans} setMaintenancePlans={setMaintenancePlans} appSettings={appSettings} setAppSettings={setAppSettings} />;
         default: return <KanbanBoard tickets={filteredTickets} onUpdateTicket={handleTicketUpdate} onSelectTicket={setSelectedTicket} selectedTicket={selectedTicket} />;
     }
   }

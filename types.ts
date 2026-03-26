@@ -59,15 +59,6 @@ export interface RoutingRule {
   skill: string;
 }
 
-export interface EmailLog {
-  id: string;
-  timestamp: string;
-  recipient: string;
-  subject: string;
-  body: string;
-  ticketId: string;
-}
-
 export interface AppSettings {
   appName: string;
   logoUrl: string;
@@ -143,7 +134,6 @@ export interface Ticket {
   photos?: string[];
   description?: string;
   notes?: string[];
-  reporterEmail?: string;
   hasNewNoteFromReporter?: boolean;
   is_emergency?: boolean;
   costs?: {

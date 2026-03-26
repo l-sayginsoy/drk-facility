@@ -33,6 +33,12 @@ const CheckCircleIcon: React.FC = () => (
     </svg>
 );
 
+const BoltIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+    </svg>
+);
+
 // --- UI COMPONENTS ---
 const StatCard: React.FC<{ title: string; value: string | number; description?: string; icon: React.ReactNode; iconBgColor: string; }> = ({ title, value, description, icon, iconBgColor }) => (
     <div className="stat-card">
@@ -74,7 +80,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
         area: 'Alle', status: 'Alle', technician: 'Alle'
     });
     
-    const technicians = useMemo(() => users.filter(u => u.role === Role.Technician), [users]);
+    const technicians = useMemo(() => users.filter(u => u.role === Role.Technician && u.isActive), [users]);
     const allTechnicianNames = useMemo(() => ['Alle', ...technicians.map(t => t.name)], [technicians]);
 
     const filteredTickets = useMemo(() => {
@@ -288,7 +294,7 @@ const ReportsView: React.FC<ReportsViewProps> = ({ tickets, users }) => {
                 <StatCard title="Gesamte Tickets" value={stats.total} description="Im ausgewählten Zeitraum" icon={<DocumentIcon />} iconBgColor="rgba(0, 123, 255, 0.1)" />
                 <StatCard title="Abgeschlossen" value={stats.abgeschlossene} description="Im ausgewählten Zeitraum" icon={<CheckCircleIcon />} iconBgColor="rgba(40, 167, 69, 0.1)" />
                 <StatCard title="Überfällig" value={stats.ueberfaellige} description="Aktuell überfällige Tickets" icon={<ExclamationTriangleIcon />} iconBgColor="rgba(220, 53, 69, 0.1)" />
-                <StatCard title="Bearbeitungszeit (Ø)" value={`${stats.avgProcessingTime} Tage`} description="Für abgeschlossene Tickets" icon={<ClockIcon />} iconBgColor="rgba(255, 193, 7, 0.1)" />
+                <StatCard title="Bearbeitungszeit (Ø)" value={`${stats.avgProcessingTime} Tage`} description="Für abgeschlossene Tickets" icon={<BoltIcon />} iconBgColor="rgba(255, 193, 7, 0.1)" />
             </div>
             
             <div className="charts-grid">

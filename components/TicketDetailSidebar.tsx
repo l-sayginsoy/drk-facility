@@ -99,12 +99,6 @@ const TicketDetailSidebar: React.FC<TicketDetailSidebarProps> = ({ ticket, onClo
         const updatedTicket = { ...ticket, notes: updatedNotes };
         onUpdateTicket(updatedTicket);
         setNewNote('');
-        
-        if (updatedTicket.reporterEmail) {
-            console.log(`[E-Mail-Simulation] Sende E-Mail an: ${updatedTicket.reporterEmail}`);
-            console.log(`Betreff: Neue Notiz zu Ihrem Ticket ${updatedTicket.id}`);
-            console.log(`Nachricht: Es wurde eine neue Notiz zu Ihrem Ticket "${updatedTicket.title}" hinzugefügt:\n"${newNote.trim()}"`);
-        }
     };
     
     const handleToggleEmergency = () => {

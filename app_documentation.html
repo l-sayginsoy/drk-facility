@@ -112,18 +112,11 @@
         <li><strong>Foto-Upload (Freiwillig):</strong>
             <ul>
                 <li>Es können bis zu <strong>3 Fotos</strong> zu einer Meldung hinzugefügt werden.</li>
-                <li><strong>Wichtig:</strong> Der Foto-Upload ist in allen Bereichen <strong>freiwillig</strong>. In kritischen Bereichen wie "Sicherheit" oder "Brandschutz" wird ein Foto jedoch ausdrücklich empfohlen, um die Lage vorab besser einschätzen zu können.</li>
+                <li><strong>Wichtig:</strong> Der Foto-Upload ist <strong>immer freiwillig</strong>, auch in Bereichen wie "Sicherheit" oder "Brandschutz". Es gibt keine Verpflichtung, ein Foto hinzuzufügen.</li>
                 <li>Alle hochgeladenen Bilder werden vor dem Speichern <strong>automatisch komprimiert</strong>, um den Speicherplatz im Browser zu schonen und die Performance zu gewährleisten.</li>
             </ul>
         </li>
-        <li><strong>Automatisierte E-Mail-Benachrichtigungen:</strong>
-            <ul>
-                <li>Wunsch-Termin: Ermöglicht dem Melder, eine Präferenz anzugeben.</li>
-                <li>E-Mail-Adresse: Wenn eine E-Mail-Adresse angegeben wird, sendet das System <strong>automatisch Status-Updates</strong>.</li>
-                <li><strong>Funktionsweise:</strong> Der Melder erhält eine Bestätigung bei Ticketeingang sowie eine Benachrichtigung, sobald sich der Status des Tickets ändert (z.B. von "Offen" auf "In Arbeit" oder "Abgeschlossen").</li>
-                <li>Admins können den Verlauf dieser Benachrichtigungen in der Steuerzentrale unter "E-Mail Log" einsehen.</li>
-            </ul>
-        </li>
+        <li><strong>Wunsch-Termin:</strong> Ermöglicht dem Melder, eine Präferenz anzugeben.</li>
     </ul>
 
     <h3>1.2. Status-Prüfung (Transparenz für den Melder)</h3>
@@ -152,7 +145,7 @@
     <ul>
         <li><strong>Automatische Priorisierung:</strong>
             <ul>
-                <li>Das System analysiert die vom Melder gewählte <strong>Kategorie</strong>.</li>
+                <li>Das System ordnet das Ticket im Hintergrund automatisch einer <strong>Standard-Kategorie</strong> zu.</li>
                 <li>Jeder Kategorie ist in den Einstellungen eine <strong>Standard-Priorität</strong> zugewiesen (z.B. "Sicherheit" -> "Hoch"). Diese wird automatisch für das neue Ticket gesetzt.</li>
             </ul>
         </li>
@@ -265,7 +258,7 @@
 
     <h3>4.1. Prozess-Steuerung</h3>
     <ul>
-        <li><strong>Ticket-Kategorien:</strong> Admins können die im Melde-Portal auswählbaren Kategorien definieren und ihnen eine Standard-Priorität zuweisen.</li>
+        <li><strong>Ticket-Kategorien:</strong> Admins können die Kategorien definieren und ihnen eine Standard-Priorität zuweisen. Diese werden im Hintergrund für die automatische Priorisierung und SLA-Berechnung genutzt.</li>
         <li><strong>SLA-Matrix:</strong> Hier wird die Logik für Fälligkeiten festgelegt, indem für eine Kombination aus Kategorie und Priorität eine Reaktionszeit in Stunden definiert wird.</li>
         <li><strong>Routing-Regeln:</strong> Definition der Keyword-Skill-Zuweisungen für die automatische Techniker-Zuweisung.</li>
     </ul>

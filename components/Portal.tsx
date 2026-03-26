@@ -102,8 +102,7 @@ const NewTicketForm: React.FC<{
         return {
             reporter: '', area: locations[0] || '', location: '', title: '',
             description: '', wunschTermin: '',
-            reporterEmail: '', photos: [] as string[],
-            categoryId: appSettings.ticketCategories[0]?.id || ''
+            photos: [] as string[]
         };
     });
 
@@ -128,10 +127,6 @@ const NewTicketForm: React.FC<{
         if (!formState.location.trim()) newErrors.location = 'Ort ist ein Pflichtfeld.';
         if (!formState.description.trim()) newErrors.description = 'Beschreibung ist ein Pflichtfeld.';
         if (formState.reporter.trim().length < 2) newErrors.reporter = 'Name muss mindestens 2 Zeichen lang sein.';
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (formState.reporterEmail && !emailRegex.test(formState.reporterEmail)) {
-            newErrors.reporterEmail = 'Bitte geben Sie eine gültige E-Mail-Adresse ein.';
-        }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -175,9 +170,8 @@ const NewTicketForm: React.FC<{
             reporter: formState.reporter, dueDate: '', // Will be auto-calculated
             technician: 'N/A',
             description: formState.description,
-            categoryId: formState.categoryId,
+            categoryId: appSettings.ticketCategories[0]?.id || '',
             wunschTermin: formattedWunschTermin, photos: formState.photos, notes: [],
-            reporterEmail: formState.reporterEmail,
         });
 
         setNewlyCreatedTicketId(newTicketId);
@@ -243,11 +237,6 @@ const NewTicketForm: React.FC<{
                     <label>Ihr Name*</label>
                     <input type="text" placeholder="Max Mustermann" value={formState.reporter} onChange={e => setFormState(p => ({...p, reporter: e.target.value}))} />
                     {errors.reporter && <span className="error-text">{errors.reporter}</span>}
-                </div>
-                 <div className="form-group">
-                    <label>Ihre E-Mail-Adresse (Optional)</label>
-                    <input type="email" placeholder="fuer-status-updates@email.de" value={formState.reporterEmail} onChange={e => setFormState(p => ({...p, reporterEmail: e.target.value}))} />
-                    {errors.reporterEmail && <span className="error-text">{errors.reporterEmail}</span>}
                 </div>
                  <div className="form-group">
                     <label>Wunsch-Termin (Optional)</label>
@@ -486,9 +475,6 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                                 {copied ? <CheckIcon style={{color: 'var(--accent-success)'}} /> : <ClipboardIcon />}
                             </button>
                         </div>
-                        <p className="email-info">
-                            Falls Sie eine E-Mail-Adresse angegeben haben, wird eine Bestätigung an diese gesendet (in dieser Demo-Version wird dies nur simuliert).
-                        </p>
                     </div>
                 </div>
                 <div className="portal-actions">

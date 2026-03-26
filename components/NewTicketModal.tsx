@@ -23,7 +23,6 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
   const [title, setTitle] = useState('');
   const [area, setArea] = useState(locations[0] || '');
   const [location, setLocation] = useState('');
-  const [categoryId, setCategoryId] = useState(appSettings.ticketCategories[0]?.id || '');
   const [reporter, setReporter] = useState('');
   const [dueDate, setDueDate] = useState(getFutureDateString(7)); // Default due date 7 days from now
   const [technician, setTechnician] = useState('N/A');
@@ -63,8 +62,8 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !dueDate || !categoryId) {
-        alert('Bitte Titel, Kategorie und Fälligkeitsdatum ausfüllen.');
+    if (!title.trim() || !dueDate) {
+        alert('Bitte Titel und Fälligkeitsdatum ausfüllen.');
         return;
     }
 
@@ -79,7 +78,7 @@ const NewTicketModal: React.FC<NewTicketModalProps> = ({ onClose, onSave, locati
       reporter,
       dueDate: formattedDueDate,
       technician,
-      categoryId, // Still using the default categoryId from state
+      categoryId: appSettings.ticketCategories[0]?.id || '',
       description,
       photos,
       notes: [],

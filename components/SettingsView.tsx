@@ -1,7 +1,7 @@
 
 // FIX: Import useMemo hook from React.
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus, EmailLog } from '../types';
+import { User, Location, Role, AppSettings, Priority, TicketCategory, SLARule, RoutingRule, Asset, MaintenancePlan, AvailabilityStatus } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { TrashIcon } from './icons/TrashIcon';
 import UserModal from './UserModal';
@@ -110,29 +110,24 @@ const DOCUMENTATION_HTML = `
             <ul>
                 <li>Bereich: Eine vordefinierte Liste von Standorten (z.B. "Küche", "Verwaltung").</li>
                 <li>Ort/Detail: Ein Freitextfeld zur Spezifizierung des Ortes (z.B. "Raum 102", "Maschine 3").</li>
-                <li>Kategorie: Eine Auswahl vordefinierter Problemkategorien (z.B. "Sicherheit", "Komfort", "IT-Infrastruktur"). Dies ist ein entscheidender Input für die Automatisierung.</li>
                 <li>Betreff & Beschreibung: Felder zur genauen Beschreibung des Problems.</li>
             </ul>
         </li>
-        <li><strong>Intelligente Einschränkungen:</strong>
+        <li><strong>Intelligente Vereinfachung:</strong>
             <ul>
-                <li>Der Melder kann bewusst <strong>keine Priorität</strong> und <strong>keinen Techniker</strong> auswählen. Diese Felder sind im Meldeformular nicht vorhanden.</li>
-                <li><strong>Logik dahinter:</strong> Die Priorität wird zuverlässiger vom System anhand der Kategorie bestimmt (siehe Teil 2.1). Die Technikerzuweisung erfolgt ebenfalls automatisch basierend auf Skill und Auslastung, was menschliche Fehleinschätzungen vermeidet.</li>
+                <li>Der Melder muss <strong>keine Kategorie</strong>, <strong>keine Priorität</strong> und <strong>keinen Techniker</strong> auswählen.</li>
+                <li><strong>Logik dahinter:</strong> Um den Meldevorgang so einfach wie möglich zu gestalten, wurde das Feld "Kategorie" entfernt. Das System ordnet das Ticket im Hintergrund automatisch einer Standard-Kategorie zu. Die Priorität und Technikerzuweisung erfolgen ebenfalls vollautomatisch basierend auf intelligenten Regeln, was menschliche Fehleinschätzungen vermeidet und den Melder entlastet.</li>
+                <li><strong>Abwesenheitsschutz:</strong> Das System stellt sicher, dass niemals ein abwesender Techniker für ein neues Ticket ausgewählt wird.</li>
             </ul>
         </li>
-        <li><strong>Foto-Upload:</strong>
+        <li><strong>Foto-Upload (Freiwillig):</strong>
             <ul>
                 <li>Es können bis zu <strong>3 Fotos</strong> zu einer Meldung hinzugefügt werden.</li>
-                <li>Die App bietet die Option, ein Foto direkt mit der <strong>Gerätekamera</strong> aufzunehmen (<code>&lt;input type="file" capture&gt;</code>) oder aus der <strong>Galerie</strong> auszuwählen.</li>
+                <li><strong>Wichtig:</strong> Der Foto-Upload ist <strong>immer freiwillig</strong>, auch in Bereichen wie "Sicherheit" oder "Brandschutz". Es gibt keine Verpflichtung, ein Foto hinzuzufügen.</li>
                 <li>Alle hochgeladenen Bilder werden vor dem Speichern <strong>automatisch komprimiert</strong>, um den Speicherplatz im Browser zu schonen und die Performance zu gewährleisten.</li>
             </ul>
         </li>
-        <li><strong>Optionale Felder:</strong>
-            <ul>
-                <li>Wunsch-Termin: Ermöglicht dem Melder, eine Präferenz anzugeben.</li>
-                <li>E-Mail-Adresse: Falls angegeben, kann das System (simulierte) Status-Updates per E-Mail senden.</li>
-            </ul>
-        </li>
+        <li><strong>Wunsch-Termin:</strong> Ermöglicht dem Melder, eine Präferenz anzugeben.</li>
     </ul>
 
     <h3>1.2. Status-Prüfung (Transparenz für den Melder)</h3>
@@ -161,7 +156,7 @@ const DOCUMENTATION_HTML = `
     <ul>
         <li><strong>Automatische Priorisierung:</strong>
             <ul>
-                <li>Das System analysiert die vom Melder gewählte <strong>Kategorie</strong>.</li>
+                <li>Das System ordnet das Ticket im Hintergrund automatisch einer <strong>Standard-Kategorie</strong> zu.</li>
                 <li>Jeder Kategorie ist in den Einstellungen eine <strong>Standard-Priorität</strong> zugewiesen (z.B. "Sicherheit" -> "Hoch"). Diese wird automatisch für das neue Ticket gesetzt.</li>
             </ul>
         </li>
@@ -265,7 +260,7 @@ const DOCUMENTATION_HTML = `
 
     <h3>4.1. Prozess-Steuerung</h3>
     <ul>
-        <li><strong>Ticket-Kategorien:</strong> Admins können die im Melde-Portal auswählbaren Kategorien definieren und ihnen eine Standard-Priorität zuweisen.</li>
+        <li><strong>Ticket-Kategorien:</strong> Admins können die Kategorien definieren und ihnen eine Standard-Priorität zuweisen. Diese werden im Hintergrund für die automatische Priorisierung und SLA-Berechnung genutzt.</li>
         <li><strong>SLA-Matrix:</strong> Hier wird die Logik für Fälligkeiten festgelegt, indem für eine Kombination aus Kategorie und Priorität eine Reaktionszeit in Stunden definiert wird.</li>
         <li><strong>Routing-Regeln:</strong> Definition der Keyword-Skill-Zuweisungen für die automatische Techniker-Zuweisung.</li>
     </ul>
@@ -303,12 +298,11 @@ interface SettingsViewProps {
     setMaintenancePlans: React.Dispatch<React.SetStateAction<MaintenancePlan[]>>;
     appSettings: AppSettings;
     setAppSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-    emailLogs: EmailLog[];
 }
 
 const SettingsView: React.FC<SettingsViewProps> = (props) => {
-    const { users, setUsers, locations, setLocations, assets, setAssets, maintenancePlans, setMaintenancePlans, appSettings, setAppSettings, emailLogs } = props;
-    const [activeTab, setActiveTab] = useState<'prozesse' | 'benutzer' | 'standorte' | 'datenbank' | 'emails'>('prozesse');
+    const { users, setUsers, locations, setLocations, assets, setAssets, maintenancePlans, setMaintenancePlans, appSettings, setAppSettings } = props;
+    const [activeTab, setActiveTab] = useState<'prozesse' | 'benutzer' | 'standorte' | 'datenbank'>('prozesse');
     
     // Supabase Settings
     const [sbUrl, setSbUrl] = useState(window.localStorage.getItem('SUPABASE_URL_OVERRIDE') || '');
@@ -635,46 +629,6 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
         </div>
     );
 
-    const renderEmailsTab = () => (
-        <div className="settings-section">
-            <div className="settings-section-header">
-                <h3 className="settings-section-title">E-Mail Benachrichtigungen (Simulation)</h3>
-            </div>
-            <div className="settings-section-body">
-                <p className="form-group-description">
-                    Hier sehen Sie eine Historie der E-Mails, die das System automatisch an Melder "versendet" hat. Da die App autark läuft, werden diese E-Mails hier simuliert und protokolliert.
-                </p>
-                {emailLogs.length === 0 ? (
-                    <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        Noch keine E-Mails versendet.
-                    </div>
-                ) : (
-                    <div className="email-log-list">
-                        {emailLogs.map(log => (
-                            <div key={log.id} className="email-log-item">
-                                <div className="email-log-meta">
-                                    <span className="email-log-date">{log.timestamp}</span>
-                                    <span className="email-log-recipient">An: {log.recipient}</span>
-                                    <span className="email-log-ticket">Ticket: {log.ticketId}</span>
-                                </div>
-                                <div className="email-log-subject">{log.subject}</div>
-                                <div className="email-log-body">{log.body}</div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-            <style>{`
-                .email-log-list { display: flex; flex-direction: column; gap: 1rem; }
-                .email-log-item { padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-primary); }
-                .email-log-meta { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem; }
-                .email-log-subject { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-primary); }
-                .email-log-body { font-size: 0.85rem; color: var(--text-secondary); white-space: pre-wrap; line-height: 1.4; }
-                .email-log-date { font-weight: 600; }
-            `}</style>
-        </div>
-    );
-
     return (
         <div className="settings-view">
             <style>{`
@@ -759,14 +713,12 @@ const SettingsView: React.FC<SettingsViewProps> = (props) => {
                 <button className={`tab-btn ${activeTab === 'benutzer' ? 'active' : ''}`} onClick={() => setActiveTab('benutzer')}>Benutzer & Teams</button>
                 <button className={`tab-btn ${activeTab === 'standorte' ? 'active' : ''}`} onClick={() => setActiveTab('standorte')}>Standorte & Anlagen</button>
                 <button className={`tab-btn ${activeTab === 'datenbank' ? 'active' : ''}`} onClick={() => setActiveTab('datenbank')}>Datenbank</button>
-                <button className={`tab-btn ${activeTab === 'emails' ? 'active' : ''}`} onClick={() => setActiveTab('emails')}>E-Mail Log</button>
             </div>
             <div className="tab-content">
                 {activeTab === 'prozesse' && renderProzesseTab()}
                 {activeTab === 'benutzer' && renderBenutzerTab()}
                 {activeTab === 'standorte' && renderStandorteTab()}
                 {activeTab === 'datenbank' && renderDatenbankTab()}
-                {activeTab === 'emails' && renderEmailsTab()}
             </div>
             {isUserModalOpen && <UserModal user={editingUser} allSkills={allSkills} onClose={() => setUserModalOpen(false)} onSave={handleSaveUser} />}
             {isLocationModalOpen && <AreaModal area={editingLocation} onClose={() => setLocationModalOpen(false)} onSave={handleSaveLocation} />}
