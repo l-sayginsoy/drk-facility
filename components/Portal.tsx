@@ -3,8 +3,6 @@ import { Ticket, Priority, Role, User, AppSettings } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { SearchIcon } from './icons/SearchIcon';
 import { UserIcon } from './icons/UserIcon';
-// FIX: Correctly import TECHNICIANS_DATA
-import { TECHNICIANS_DATA } from '../constants';
 import { CameraIcon } from './icons/CameraIcon';
 import { XIcon } from './icons/XIcon';
 import { ArrowLeftIcon } from './icons/ArrowLeftIcon';
@@ -45,7 +43,7 @@ const getSuggestedDueDate = (priority: Priority, rules: Record<Priority, number>
     const date = new Date();
     const daysToAdd = rules[priority] || 7; // Default to 7 days if rule not found
     date.setDate(date.getDate() + daysToAdd);
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split('T');
 };
 
 const compressImage = (file: File): Promise<string> => {
@@ -100,7 +98,7 @@ const NewTicketForm: React.FC<{
         } catch (e) { console.error("Could not load draft", e); }
         
         return {
-            reporter: '', area: locations[0] || '', location: '', title: '',
+            reporter: '', area: locations || '', location: '', title: '',
             description: '', wunschTermin: '',
             photos: [] as string[]
         };
@@ -134,7 +132,7 @@ const NewTicketForm: React.FC<{
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
-        const file = files[0];
+        const file = files;
         if (formState.photos.length >= 3) {
             alert("Maximal 3 Fotos erlaubt."); return;
         }
@@ -170,7 +168,7 @@ const NewTicketForm: React.FC<{
             reporter: formState.reporter, dueDate: '', // Will be auto-calculated
             technician: 'N/A',
             description: formState.description,
-            categoryId: appSettings.ticketCategories[0]?.id || '',
+            categoryId: appSettings.ticketCategories?.id || '',
             wunschTermin: formattedWunschTermin, photos: formState.photos, notes: [],
         });
 
@@ -297,7 +295,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   const handleTechnicianLogin = (e: React.FormEvent) => {
       e.preventDefault();
       setLoginError('');
-      const user = users.find(u => u.name === loginAttempt.name && u.role === Role.Technician && u.isActive);
+      const user = users.find(u => u.name.toLowerCase() === loginAttempt.name.toLowerCase() && u.password === loginAttempt.password && u.role === Role.Technician && u.isActive);
       if (user) {
           onLogin(user);
       } else {
@@ -308,7 +306,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
   const handleAdminLogin = (e: React.FormEvent) => {
       e.preventDefault();
       setLoginError('');
-      const user = users.find(u => u.name === loginAttempt.name && u.role === Role.Admin);
+      const user = users.find(u => u.name.toLowerCase() === loginAttempt.name.toLowerCase() && u.password === loginAttempt.password && u.role === Role.Admin);
       if (user) {
           onLogin(user);
       } else {
@@ -363,7 +361,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
         return (
             <form onSubmit={handleTechnicianLogin}>
                 <div className="portal-header condensed">
-                    <button className="back-btn" onClick={resetAndGoToMenu}><ArrowLeftIcon /></button>
+                    <button type="button" className="back-btn" onClick={resetAndGoToMenu}><ArrowLeftIcon /></button>
                     <h2 className="portal-subtitle">Anmeldung Haustechnik</h2>
                     <div className="header-spacer" />
                 </div>
@@ -372,7 +370,7 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         <label>Techniker</label>
                         <select value={loginAttempt.name} onChange={e => { setLoginAttempt(p => ({...p, name: e.target.value})); setLoginError(''); }}>
                             <option value="" disabled>Namen auswählen</option>
-                            {TECHNICIANS_DATA.filter(t => t.isActive).map(tech => (
+                            {users.filter(t => t.isActive && t.role === Role.Technician).map(tech => (
                                 <option key={tech.id} value={tech.name}>
                                     {tech.name}
                                 </option>
@@ -408,10 +406,6 @@ const Portal: React.FC<PortalProps> = ({ appSettings, onLogin, tickets, location
                         <input type="password" value={loginAttempt.password} onChange={e => { setLoginAttempt(p => ({...p, password: e.target.value})); setLoginError(''); }}/>
                     </div>
                      {loginError && <p className="error-text" style={{textAlign: 'center'}}>{loginError}</p>}
-                    <div className="login-hint">
-                        <p><strong>Demo-Anmeldung:</strong></p>
-                        <p>Benutzer: <strong>Admin</strong> / Passwort: <strong>admin</strong></p>
-                    </div>
                 </div>
                 <div className="portal-actions">
                     <button type="submit" className="portal-btn btn-primary">Anmelden</button>

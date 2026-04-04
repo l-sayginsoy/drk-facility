@@ -248,11 +248,11 @@ export const MOCK_TICKETS: Ticket[] = [
 ];
 
 export const MOCK_USERS: User[] = [
-    { id: 'user-1', name: 'Admin', role: Role.Admin, password: 'admin', isActive: true, skills: ['all'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
-    { id: 'user-2', name: 'Heiko Saupert', role: Role.Technician, password: '123', isActive: true, skills: ['Sanitär', 'Allgemein', 'Schließanlagen'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
-    { id: 'user-3', name: 'Ali Najafi', role: Role.Technician, password: '123', isActive: true, skills: ['HLK', 'Klima'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
-    { id: 'user-4', name: 'Torsten Isselhard', role: Role.Technician, password: '123', isActive: true, skills: ['Elektrik', 'IT', 'Schwesternruf'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
-    { id: 'user-5', name: 'Max Mustermann (Inaktiv)', role: Role.Technician, password: '123', isActive: false, skills: [], availability: { status: AvailabilityStatus.OnLeave, leaveUntil: '2026-03-01' } },
+    { id: 'user-1', name: 'admin', role: Role.Admin, password: 'admin', isActive: true, skills: ['all'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
+    { id: 'user-2', name: 'Heiko Saupert', role: Role.Technician, password: 'Heiko1', isActive: true, skills: ['Sanitär', 'Allgemein', 'Schließanlagen'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
+    { id: 'user-3', name: 'Ali Najafi', role: Role.Technician, password: 'Ali1', isActive: true, skills: ['HLK', 'Klima'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
+    { id: 'user-4', name: 'Torsten Isselhard', role: Role.Technician, password: 'Torsten1', isActive: true, skills: ['Elektrik', 'IT', 'Schwesternruf'], availability: { status: AvailabilityStatus.Available, leaveUntil: null } },
+    { id: 'user-5', name: 'Max Mustermann (Inaktiv)', role: Role.Technician, password: 'Max1', isActive: false, skills: [], availability: { status: AvailabilityStatus.OnLeave, leaveUntil: '2026-03-01' } },
 ];
 
 export const TECHNICIANS_DATA: User[] = MOCK_USERS.filter(u => u.role === Role.Technician);

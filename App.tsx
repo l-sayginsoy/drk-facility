@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -61,7 +60,7 @@ const parseGermanDate = (dateStr: string | undefined): Date | null => {
     if (!dateStr || dateStr === 'N/A') return null;
     const parts = dateStr.split('.');
     if (parts.length === 3) {
-        return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+        return new Date(parseInt(parts, 10), parseInt(parts, 10) - 1, parseInt(parts, 10));
     }
     return null;
 };
@@ -72,7 +71,7 @@ const parseISODate = (dateStr: string | undefined): Date | null => {
     const parts = dateStr.split('-');
     if (parts.length === 3) {
         // new Date(year, monthIndex, day)
-        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return new Date(parseInt(parts, 10), parseInt(parts, 10) - 1, parseInt(parts, 10));
     }
     return null;
 }
@@ -167,7 +166,7 @@ const assignTicket = (
             
             // Sort by load, ascending, to find the least busy one
             techniciansWithLoad.sort((a, b) => a.load - b.load);
-            assignedTechnician = techniciansWithLoad[0].name;
+            assignedTechnician = techniciansWithLoad.name;
         }
     }
     return assignedTechnician;
@@ -283,6 +282,39 @@ const App: React.FC = () => {
 
   // --- Effects to persist state ---
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
+
+  // Migration for old user data
+  useEffect(() => {
+    setUsers(prev => {
+      let changed = false;
+      const updated = prev.map(u => {
+        if (u.id === 'user-2' && (u.name !== 'Heiko Saupert' || u.password !== 'Heiko1')) { changed = true; return { ...u, name: 'Heiko Saupert', password: 'Heiko1' }; }
+        if (u.id === 'user-3' && (u.name !== 'Ali Najafi' || u.password !== 'Ali1')) { changed = true; return { ...u, name: 'Ali Najafi', password: 'Ali1' }; }
+        if (u.id === 'user-4' && (u.name !== 'Torsten Isselhard' || u.password !== 'Torsten1')) { changed = true; return { ...u, name: 'Torsten Isselhard', password: 'Torsten1' }; }
+        if (u.id === 'user-5' && (u.name !== 'Max Mustermann (Inaktiv)' || u.password !== 'Max1')) { changed = true; return { ...u, name: 'Max Mustermann (Inaktiv)', password: 'Max1' }; }
+        if (u.id === 'user-1' && (u.name !== 'admin' || u.password !== 'admin')) { changed = true; return { ...u, name: 'admin', password: 'admin' }; }
+        return u;
+      });
+      return changed ? updated : prev;
+    });
+
+    setTickets(prev => {
+      let changed = false;
+      const updated = prev.map(t => {
+        let newTech = t.technician;
+        if (newTech === 'Heiko') newTech = 'Heiko Saupert';
+        if (newTech === 'Torsten') newTech = 'Torsten Isselhard';
+        if (newTech === 'Ali') newTech = 'Ali Najafi';
+        if (newTech !== t.technician) {
+          changed = true;
+          return { ...t, technician: newTech };
+        }
+        return t;
+      });
+      return changed ? updated : prev;
+    });
+  }, []);
+
   useEffect(() => { localStorage.setItem('currentUser', JSON.stringify(currentUser)); }, [currentUser]);
   
   useEffect(() => { 
@@ -380,7 +412,7 @@ const App: React.FC = () => {
                   if (criticalTickets.length > 0) {
                       criticalTickets.forEach(ticket => {
                           availableTechnicians.sort((a, b) => (techLoadMap.get(a.name) || 0) - (techLoadMap.get(b.name) || 0));
-                          const targetTech = availableTechnicians[0];
+                          const targetTech = availableTechnicians;
                           if (targetTech) {
                               const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
                               if (ticketIndex !== -1) {
@@ -448,7 +480,7 @@ const App: React.FC = () => {
                   if (!returningTechnicians.some(rt => rt.name === bestTech)) {
                       const eligibleReturnees = [...returningTechnicians].sort((a, b) => getLoad(a.name, updatedTickets) - getLoad(b.name, updatedTickets));
                       if (eligibleReturnees.length > 0) {
-                          const candidate = eligibleReturnees[0];
+                          const candidate = eligibleReturnees;
                           const candidateLoad = getLoad(candidate.name, updatedTickets);
                           
                           // Wenn der Rückkehrer noch Kapazität unter dem Durchschnitt hat, bekommt er das Ticket
@@ -489,7 +521,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const today = new Date(2026, 1, 7); // Changed for Safari
     today.setHours(0,0,0,0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = today.toISOString().split('T');
     
     const duePlans = maintenancePlans.filter(plan => {
         const lastGenerated = parseISODate(plan.lastGenerated); // Changed for Safari
@@ -595,7 +627,7 @@ const App: React.FC = () => {
                         load: tickets.filter(t => t.technician === tech.name && t.status !== Status.Abgeschlossen).length
                     }));
                     techsWithLoad.sort((a, b) => a.load - b.load);
-                    newTech = techsWithLoad[0].name;
+                    newTech = techsWithLoad.name;
                 } else {
                     newTech = 'N/A';
                 }
@@ -793,7 +825,7 @@ const App: React.FC = () => {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `tickets_${currentView}_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute("download", `tickets_${currentView}_${new Date().toISOString().split('T')}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -838,7 +870,7 @@ const App: React.FC = () => {
             },
         });
 
-        const fileName = `tickets_${currentView}_${new Date().toISOString().split('T')[0]}.pdf`;
+        const fileName = `tickets_${currentView}_${new Date().toISOString().split('T')}.pdf`;
         doc.save(fileName);
     };
 
@@ -963,7 +995,7 @@ const App: React.FC = () => {
                   return loadA - loadB;
               });
 
-              const bestCandidate = candidates[0];
+              const bestCandidate = candidates;
 
               if (bestCandidate) {
                   // D. Assign Ticket
@@ -1078,7 +1110,7 @@ const App: React.FC = () => {
                   return loadA - loadB;
               });
 
-              const targetTech = availableTechnicians[0];
+              const targetTech = availableTechnicians;
 
               if (targetTech) {
                   const ticketIndex = ticketsToUpdate.findIndex(t => t.id === ticket.id);
